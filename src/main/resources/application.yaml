@@ -110,7 +110,7 @@ ai:
 
 logging:
   level:
-    com.projbase.api.global.external: DEBUG
+    com.atmd.api.global.external: DEBUG
 
 management:
   endpoints:

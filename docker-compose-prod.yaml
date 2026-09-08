@@ -1,7 +1,7 @@
 services:
   app:
-    image: ${DOCKERHUB_USERNAME}/projbase-api:latest
-    container_name: projbase-app
+    image: ${DOCKERHUB_USERNAME}/atmd-api:latest
+    container_name: atmd-app
     ports:
       - "127.0.0.1:8080:8080"   # 리버스 프록시(Nginx 등)가 같은 호스트에 있을 때만. 별도 서버라면 제거
     env_file:
@@ -28,7 +28,7 @@ services:
 
   postgres:
     image: postgres:16-alpine
-    container_name: projbase-postgres
+    container_name: atmd-postgres
     # ports 미노출 — 앱 컨테이너가 내부 네트워크로 직접 접근
     environment:
       POSTGRES_DB: ${DB_NAME}
@@ -48,7 +48,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: projbase-redis
+    container_name: atmd-redis
     # ports 미노출 — 앱 컨테이너가 내부 네트워크로 직접 접근
     volumes:
       - redis-data:/data

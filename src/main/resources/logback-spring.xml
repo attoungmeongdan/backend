@@ -16,7 +16,7 @@
             <appender-ref ref="CONSOLE"/>
         </root>
 
-        <logger name="com.projbase" level="DEBUG"/>
+        <logger name="com.atmd" level="DEBUG"/>
         <logger name="org.hibernate.SQL" level="DEBUG"/>
     </springProfile>
 
@@ -48,7 +48,7 @@
             <appender-ref ref="FILE"/>
         </root>
 
-        <logger name="com.projbase" level="INFO"/>
+        <logger name="com.atmd" level="INFO"/>
     </springProfile>
 
 </configuration>
