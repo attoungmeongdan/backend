@@ -1,0 +1,43 @@
+server:
+  forward-headers-strategy: native
+
+spring:
+  datasource:
+    # RDS 등 TLS 지원 PostgreSQL로 전환 시 아래로 교체 (현재는 기본값 sslmode=disable 상속)
+    # url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=require
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+
+decorator:
+  datasource:
+    p6spy:
+      enable-logging: false
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+management:
+  server:
+    port: 8081
+  endpoints:
+    web:
+      exposure:
+        include: health, prometheus
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+    prometheus:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: ${spring.application.name}

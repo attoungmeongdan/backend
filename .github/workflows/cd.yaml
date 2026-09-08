@@ -1,0 +1,142 @@
+name: CD - build/push image & deploy to EC2 on main push
+
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  IMAGE_NAME: projbase-api
+  COMPOSE_FILE: docker-compose-prod.yaml
+
+# GitHub OIDC 토큰 발급(id-token)과 소스 체크아웃(contents) 권한만 허용
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # [1] 소스코드를 runner에 내려받음
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # [2] JDK 17 설치 및 Gradle 의존성 캐시 활성화 (빌드 속도 향상)
+      - name: Set up JDK 17 (Temurin) + Gradle cache
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+          cache: "gradle"
+
+      # [3] gradlew 실행 권한 부여 (Linux runner에서 필수)
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # [4] 테스트 생략하고 실행 가능한 JAR 파일만 빌드 (배포용)
+      - name: Build JAR (skip tests)
+        run: ./gradlew clean bootJar -x test
+
+      # [5] Dockerfile의 COPY 대상 경로(app.jar)로 JAR 복사
+      # build/libs/ 에 plain JAR가 함께 생성될 수 있어 와일드카드 대신 단일 파일로 정리
+      - name: Prepare app.jar for Docker build context
+        run: cp $(find build/libs/ -name "*.jar" ! -name "*-plain.jar") app.jar
+
+      # [6] Docker Hub 로그인 (이미지 push 권한 획득)
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # [7] Docker 이미지 빌드 후 Docker Hub에 push
+      # latest 태그와 커밋 SHA 태그를 동시에 부여해 롤백 기준점 확보
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+      # [8] AWS OIDC로 임시 자격증명 획득 (Access Key 없이 IAM Role Assume)
+      # id-token: write 권한이 있어야 동작함
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-northeast-2
+
+      # [9] docker-compose-prod.yaml을 base64로 인코딩해 SSM을 통해 EC2에 전송
+      # SSH 없이 SSM Send-Command로 파일을 EC2에 동기화
+      # 전송 후 완료 여부를 폴링(최대 20초)하여 실패 시 즉시 중단
+      - name: Sync docker-compose-prod.yaml to EC2 via SSM
+        run: |
+          ENCODED=$(base64 -w 0 ${{ env.COMPOSE_FILE }})
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --region ap-northeast-2 \
+            --parameters "commands=[\"echo $ENCODED | base64 -d > /home/ubuntu/projbase/docker-compose-prod.yaml\"]" \
+            --query "Command.CommandId" \
+            --output text)
+          for i in $(seq 1 10); do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
+              --query "Status" --output text 2>/dev/null || echo "Pending")
+            echo "[$i/10] Status: $STATUS"
+            if [[ "$STATUS" == "Success" || "$STATUS" == "Failed" || "$STATUS" == "Cancelled" || "$STATUS" == "TimedOut" ]]; then break; fi
+            sleep 2
+          done
+          if [[ "$STATUS" != "Success" ]]; then echo "compose sync failed: $STATUS"; exit 1; fi
+
+      # [10] SSM Send-Command로 EC2에서 배포 명령 실행 (최대 300초 대기)
+      # 1. 최신 이미지 pull
+      # 2. docker-compose up -d 실행; 실패 시 down 후 재시도
+      # 3. 컨테이너 상태 확인
+      # 4. 사용하지 않는 이전 이미지 정리
+      # 완료 후 stdout/stderr를 출력해 배포 로그 확인 가능
+      - name: Deploy on EC2 via SSM
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --timeout-seconds 300 \
+            --parameters 'commands=[
+              "set -e",
+              "cd /home/ubuntu/projbase",
+              "ENV_FILE=/home/ubuntu/projbase/.env.prod",
+              "COMPOSE_FILE=/home/ubuntu/projbase/docker-compose-prod.yaml",
+              "docker-compose --env-file $ENV_FILE -f $COMPOSE_FILE pull app",
+              "if docker-compose --env-file $ENV_FILE -f $COMPOSE_FILE up -d; then echo compose up succeeded; else docker-compose --env-file $ENV_FILE -f $COMPOSE_FILE down && docker-compose --env-file $ENV_FILE -f $COMPOSE_FILE up -d; fi",
+              "docker-compose --env-file $ENV_FILE -f $COMPOSE_FILE ps",
+              "docker image prune -f"
+            ]' \
+            --query "Command.CommandId" \
+            --output text)
+
+          for i in $(seq 1 30); do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
+              --query "Status" --output text 2>/dev/null || echo "Pending")
+            echo "[$i/30] Status: $STATUS"
+            if [[ "$STATUS" == "Success" || "$STATUS" == "Failed" || "$STATUS" == "Cancelled" || "$STATUS" == "TimedOut" ]]; then break; fi
+            sleep 10
+          done
+
+          echo "=== stdout ===" && aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
+            --query "StandardOutputContent" --output text
+
+          echo "=== stderr ===" && aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
+            --query "StandardErrorContent" --output text
+
+          if [[ "$STATUS" != "Success" ]]; then echo "Deploy failed: $STATUS"; exit 1; fi
