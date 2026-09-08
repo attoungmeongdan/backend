@@ -5,7 +5,7 @@ on:
     branches: [ "main" ]
 
 env:
-  IMAGE_NAME: atmd-api
+  IMAGE_NAME: atmd-backend
   COMPOSE_FILE: docker-compose-prod.yaml
 
 # GitHub OIDC 토큰 발급(id-token)과 소스 체크아웃(contents) 권한만 허용

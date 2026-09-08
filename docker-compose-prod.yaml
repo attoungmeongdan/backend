@@ -1,6 +1,6 @@
 services:
   app:
-    image: ${DOCKERHUB_USERNAME}/atmd-api:latest
+    image: ${DOCKERHUB_USERNAME}/atmd-backend:latest
     container_name: atmd-app
     ports:
       - "127.0.0.1:8080:8080"   # 리버스 프록시(Nginx 등)가 같은 호스트에 있을 때만. 별도 서버라면 제거
@@ -29,17 +29,19 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: atmd-postgres
+    env_file:
+      - .env.prod
     # ports 미노출 — 앱 컨테이너가 내부 네트워크로 직접 접근
     environment:
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USER}
+      POSTGRES_DB: ${DB_NAME:-atmd}
+      POSTGRES_USER: ${DB_USER:-atmd}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       TZ: Asia/Seoul
       PGTZ: Asia/Seoul
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-atmd} -d ${DB_NAME:-atmd}"]
       interval: 10s
       timeout: 5s
       retries: 10

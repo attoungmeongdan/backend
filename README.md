@@ -25,8 +25,8 @@
 도메인 중심 설계(DDD). 각 도메인이 자신의 레이어를 모두 포함하는 flat 구조.
 
 ```
-src/main/java/com/projbase/api/
-├── ApiApplication.java                     # @SpringBootApplication, @EnableJpaAuditing
+src/main/java/com/atmd/backend/
+├── BackendApplication.java                 # @SpringBootApplication, @EnableJpaAuditing
 │                                           # @EnableFeignClients(defaultConfiguration=FeignConfig)
 │
 ├── domain/
@@ -182,8 +182,8 @@ http://localhost:8080/swagger-ui/index.html
 |------|------|------|
 | `DB_HOST` | PostgreSQL 호스트 | `localhost` |
 | `DB_PORT` | PostgreSQL 포트 | `5432` |
-| `DB_NAME` | 데이터베이스 이름 | `projbase` |
-| `DB_USER` | DB 사용자 | `projbase` |
+| `DB_NAME` | 데이터베이스 이름 | `atmd` |
+| `DB_USER` | DB 사용자 | `atmd` |
 | `DB_PASSWORD` | DB 비밀번호 | |
 | `REDIS_HOST` | Redis 호스트 | `localhost` |
 | `REDIS_PORT` | Redis 포트 | `6379` |
@@ -476,7 +476,7 @@ Optional<User> findById(Long id);  // 탈퇴/삭제 데이터 노출 위험
 ### Feign 외부 API 로깅
 
 `Logger.Level.BASIC`으로 외부 API 요청/응답 상태 로깅.
-`application.yaml`의 `logging.level.com.projbase.api.global.external: DEBUG` 로 활성화.
+`application.yaml`의 `logging.level.com.atmd.backend.global.external: DEBUG` 로 활성화.
 
 에러 발생 시: `[External API Error] AiClient#chat(ChatRequestDTO) → status=429`
 
@@ -620,7 +620,7 @@ GitHub 레포 → Settings → Secrets and variables → Actions → Repository 
 ## EC2 배포 환경 사전 준비
 
 ```
-/home/ubuntu/projbase/
+/home/ubuntu/atmd/
 └── .env.prod     # 프로덕션 환경 변수
 ```
 
@@ -629,7 +629,7 @@ GitHub 레포 → Settings → Secrets and variables → Actions → Repository 
 | 항목 | 위치 | 내용 |
 |------|------|------|
 | CORS 도메인 | `SecurityConfig.java` | `allowedOrigins`에 실제 프론트 도메인 추가 |
-| `.env.prod` | EC2 `/home/ubuntu/projbase/` | 모든 필수 환경 변수 채우기 |
+| `.env.prod` | EC2 `/home/ubuntu/atmd/` | 모든 필수 환경 변수 채우기 |
 | GitHub Secrets | 레포 Settings → Secrets | 위 Secrets 표 참고 |
 
 ---
@@ -677,7 +677,7 @@ throw new GeneralException(UserErrorCode.USER_NOT_FOUND);
 
 ```
 ================================================================================
-PROJECT CONTEXT — ProjBase API (Spring Boot 3.5.3 Base Template)
+PROJECT CONTEXT — atmd API (Spring Boot 3.5.3 Base Template)
 ================================================================================
 
 이 프로젝트는 Spring Boot 3.5.3 기반 API 베이스 템플릿입니다.
@@ -701,7 +701,7 @@ PROJECT CONTEXT — ProjBase API (Spring Boot 3.5.3 Base Template)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 2. 패키지 구조
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-com.projbase.api
+com.atmd.backend
 ├── domain/
 │   ├── auth/          controller, service, dto, exception (JWT 발급/재발급/로그아웃, OAuth)
 │   ├── user/          controller, service, entity(User), repository, dto, exception
@@ -780,7 +780,7 @@ CI (.github/workflows/ci.yml):
   - GitHub Actions services: postgres:16, redis:7
 
 CD (.github/workflows/cd.yml):
-  - push to main → Docker Hub push (projbase-api:latest)
+  - push to main → Docker Hub push (atmd-backend:latest)
   - GitHub Actions → AWS OIDC (SSH 키 없음) → EC2 SSM 배포
   - EC2에서 docker-compose-prod.yaml pull + up -d --build
 
@@ -820,7 +820,7 @@ GitHub Actions IAM 역할 (OIDC):
 
 --- infra/variables.tf ---
 variable "aws_region"       { default = "ap-northeast-2" }
-variable "project"          { default = "projbase" }
+variable "project"          { default = "atmd" }
 variable "github_org"       { description = "GitHub 조직 또는 사용자명" }
 variable "github_repo"      { description = "GitHub 레포지토리명" }
 variable "ec2_ami"          { description = "Ubuntu 22.04 LTS AMI ID (리전별 상이)" }
@@ -1197,8 +1197,8 @@ JWT_REFRESH_EXPIRATION=604800000
 # Database (docker-compose 내부 서비스명 사용)
 DB_HOST=db
 DB_PORT=5432
-DB_NAME=projbase
-DB_USER=projbase
+DB_NAME=atmd
+DB_USER=atmd
 DB_PASSWORD={strong-db-password}
 
 # Redis (docker-compose 내부 서비스명, 비밀번호 없음)

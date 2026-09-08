@@ -4,7 +4,7 @@ spring:
       - optional:file:.env[.properties]
 
   application:
-    name: api
+    name: atmd
 
   datasource:
     url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
@@ -110,7 +110,7 @@ ai:
 
 logging:
   level:
-    com.atmd.api.global.external: DEBUG
+    com.atmd.backend.global.external: DEBUG
 
 management:
   endpoints:
