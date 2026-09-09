@@ -39,8 +39,10 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -398,7 +400,11 @@ public class ExerciseSessionService {
         LocalDateTime startOfToday = LocalDateTime.now(SERVER_ZONE).toLocalDate().atStartOfDay();
         LocalDateTime startOfTomorrow = startOfToday.plusDays(1);
         if (request.measurementGroupId() == null || request.measurementGroupId().isBlank()) {
-            if (exerciseSessionRepository.existsByUserIdAndModeAndCreatedAtBetweenAndIsDeletedFalse(
+            if (request.exerciseType() != MeasurementSequence.first()) {
+                throw new GeneralException(FitnessErrorCode.INVALID_MEASUREMENT_ORDER);
+            }
+            if (exerciseSessionRepository
+                    .existsByUserIdAndModeAndCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(
                     userId, ExerciseSessionMode.MEASUREMENT, startOfToday, startOfTomorrow
             )) {
                 throw new GeneralException(FitnessErrorCode.DAILY_MEASUREMENT_EXISTS);
@@ -411,15 +417,25 @@ public class ExerciseSessionService {
         } catch (IllegalArgumentException exception) {
             throw new GeneralException(FitnessErrorCode.INVALID_MEASUREMENT_GROUP_ID);
         }
-        if (!exerciseSessionRepository.existsByUserIdAndModeAndMeasurementGroupIdAndCreatedAtBetweenAndIsDeletedFalse(
+        if (!exerciseSessionRepository
+                .existsByUserIdAndModeAndMeasurementGroupIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(
                 userId, ExerciseSessionMode.MEASUREMENT, groupId, startOfToday, startOfTomorrow
         )) {
             throw new GeneralException(FitnessErrorCode.MEASUREMENT_GROUP_NOT_FOUND);
         }
-        if (exerciseSessionRepository.existsByUserIdAndMeasurementGroupIdAndExerciseTypeAndIsDeletedFalse(
-                userId, groupId, request.exerciseType()
+        if (exerciseSessionRepository.existsByUserIdAndMeasurementGroupIdAndExerciseTypeAndStatusAndIsDeletedFalse(
+                userId, groupId, request.exerciseType(), ExerciseSessionStatus.COMPLETED
         )) {
             throw new GeneralException(FitnessErrorCode.EXERCISE_ALREADY_MEASURED);
+        }
+        Set<ExerciseType> completedExercises = exerciseSessionRepository
+                .findAllByUserIdAndMeasurementGroupIdAndIsDeletedFalse(userId, groupId)
+                .stream()
+                .filter(session -> session.getStatus() == ExerciseSessionStatus.COMPLETED)
+                .map(ExerciseSession::getExerciseType)
+                .collect(Collectors.toSet());
+        if (request.exerciseType() != MeasurementSequence.next(completedExercises)) {
+            throw new GeneralException(FitnessErrorCode.INVALID_MEASUREMENT_ORDER);
         }
         return groupId;
     }

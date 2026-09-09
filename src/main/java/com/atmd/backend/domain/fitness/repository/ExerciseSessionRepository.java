@@ -16,21 +16,23 @@ import java.time.LocalDateTime;
 public interface ExerciseSessionRepository extends JpaRepository<ExerciseSession, Long> {
     List<ExerciseSession> findAllByUserIdAndStatusIn(Long userId, Collection<ExerciseSessionStatus> statuses);
 
-    boolean existsByUserIdAndModeAndCreatedAtBetweenAndIsDeletedFalse(
+    boolean existsByUserIdAndModeAndCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(
             Long userId, ExerciseSessionMode mode, LocalDateTime start, LocalDateTime end
     );
 
-    boolean existsByUserIdAndModeAndMeasurementGroupIdAndCreatedAtBetweenAndIsDeletedFalse(
+    boolean existsByUserIdAndModeAndMeasurementGroupIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(
             Long userId, ExerciseSessionMode mode, String groupId, LocalDateTime start, LocalDateTime end
     );
 
-    boolean existsByUserIdAndMeasurementGroupIdAndExerciseTypeAndIsDeletedFalse(
-            Long userId, String groupId, ExerciseType exerciseType
+    boolean existsByUserIdAndMeasurementGroupIdAndExerciseTypeAndStatusAndIsDeletedFalse(
+            Long userId, String groupId, ExerciseType exerciseType, ExerciseSessionStatus status
     );
 
-    List<ExerciseSession> findAllByUserIdAndModeAndCreatedAtBetweenAndIsDeletedFalseOrderByCreatedAtAsc(
+    List<ExerciseSession> findAllByUserIdAndModeAndCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalseOrderByCreatedAtAsc(
             Long userId, ExerciseSessionMode mode, LocalDateTime start, LocalDateTime end
     );
+
+    List<ExerciseSession> findAllByUserIdAndMeasurementGroupIdAndIsDeletedFalse(Long userId, String groupId);
 
     @Query("""
             select e.measurementGroupId

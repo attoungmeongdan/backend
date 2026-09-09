@@ -35,7 +35,7 @@ class MeasurementFlowServiceTest {
         ExerciseSession completedChairStand = session(
                 ExerciseType.CHAIR_STAND, ExerciseSessionStatus.COMPLETED
         );
-        when(repository.findAllByUserIdAndModeAndCreatedAtBetweenAndIsDeletedFalseOrderByCreatedAtAsc(
+        when(repository.findAllByUserIdAndModeAndCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalseOrderByCreatedAtAsc(
                 eq(1L), eq(ExerciseSessionMode.MEASUREMENT), any(LocalDateTime.class), any(LocalDateTime.class)
         )).thenReturn(List.of(completedChairStand));
 
@@ -50,7 +50,7 @@ class MeasurementFlowServiceTest {
     void restartDiscardsPreviousGroupAndCreatesChairStand() {
         ExerciseSession previous = session(ExerciseType.CHAIR_STAND, ExerciseSessionStatus.COMPLETED);
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(mock(User.class)));
-        when(repository.findAllByUserIdAndModeAndCreatedAtBetweenAndIsDeletedFalseOrderByCreatedAtAsc(
+        when(repository.findAllByUserIdAndModeAndCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalseOrderByCreatedAtAsc(
                 eq(1L), eq(ExerciseSessionMode.MEASUREMENT), any(LocalDateTime.class), any(LocalDateTime.class)
         )).thenReturn(List.of(previous));
         when(sessionService.create(eq(1L), any(ExerciseSessionCreateRequest.class)))

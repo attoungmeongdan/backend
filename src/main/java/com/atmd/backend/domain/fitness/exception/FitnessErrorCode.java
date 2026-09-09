@@ -21,6 +21,7 @@ public enum FitnessErrorCode implements BaseErrorCode {
     EXERCISE_ALREADY_MEASURED(HttpStatus.CONFLICT, "FITNESS_409_4", "해당 운동은 이미 측정했습니다."),
     MEASUREMENT_NOT_STARTED(HttpStatus.NOT_FOUND, "FITNESS_404_3", "오늘 시작한 체력측정이 없습니다."),
     MEASUREMENT_ALREADY_COMPLETED(HttpStatus.CONFLICT, "FITNESS_409_5", "오늘의 체력측정이 이미 완료되었습니다."),
+    INVALID_MEASUREMENT_ORDER(HttpStatus.CONFLICT, "FITNESS_409_7", "체력측정 운동 순서가 올바르지 않습니다."),
     MEASUREMENT_MANUAL_COMPLETE_NOT_ALLOWED(
             HttpStatus.CONFLICT,
             "FITNESS_409_6",

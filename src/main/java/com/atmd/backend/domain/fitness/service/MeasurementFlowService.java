@@ -25,13 +25,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class MeasurementFlowService {
     private static final ZoneId SERVER_ZONE = ZoneId.of("Asia/Seoul");
-    private static final List<ExerciseType> MEASUREMENT_ORDER = List.of(
-            ExerciseType.CHAIR_STAND,
-            ExerciseType.PUSH_UP,
-            ExerciseType.SIT_UP,
-            ExerciseType.PLANK
-    );
-
     private final ExerciseSessionRepository exerciseSessionRepository;
     private final UserRepository userRepository;
     private final ExerciseSessionService exerciseSessionService;
@@ -81,27 +74,22 @@ public class MeasurementFlowService {
 
     private MeasurementProgressResponse progress(List<ExerciseSession> sessions) {
         if (sessions.isEmpty()) {
-            return new MeasurementProgressResponse(null, List.of(), ExerciseType.CHAIR_STAND, false);
+            return new MeasurementProgressResponse(null, List.of(), MeasurementSequence.first(), false);
         }
         String groupId = sessions.get(0).getMeasurementGroupId();
         Set<ExerciseType> completed = sessions.stream()
                 .filter(session -> session.getStatus() == ExerciseSessionStatus.COMPLETED)
                 .map(ExerciseSession::getExerciseType)
                 .collect(Collectors.toSet());
-        List<ExerciseType> orderedCompleted = MEASUREMENT_ORDER.stream()
-                .filter(completed::contains)
-                .toList();
-        ExerciseType next = MEASUREMENT_ORDER.stream()
-                .filter(exerciseType -> !completed.contains(exerciseType))
-                .findFirst()
-                .orElse(null);
+        List<ExerciseType> orderedCompleted = MeasurementSequence.orderedCompleted(completed);
+        ExerciseType next = MeasurementSequence.next(completed);
         return new MeasurementProgressResponse(groupId, orderedCompleted, next, next == null);
     }
 
     private List<ExerciseSession> todaySessions(Long userId) {
         LocalDateTime start = LocalDateTime.now(SERVER_ZONE).toLocalDate().atStartOfDay();
         return exerciseSessionRepository
-                .findAllByUserIdAndModeAndCreatedAtBetweenAndIsDeletedFalseOrderByCreatedAtAsc(
+                .findAllByUserIdAndModeAndCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalseOrderByCreatedAtAsc(
                         userId, ExerciseSessionMode.MEASUREMENT, start, start.plusDays(1)
                 );
     }
