@@ -105,6 +105,8 @@ logging:
     com.atmd.backend.global.external: DEBUG
 
 management:
+  server:
+    port: 8080
   endpoints:
     web:
       exposure:

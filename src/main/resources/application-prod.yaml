@@ -22,8 +22,6 @@ springdoc:
     enabled: false
 
 management:
-  server:
-    port: 8081
   endpoints:
     web:
       exposure:
