@@ -63,3 +63,7 @@ out/
 
 ### Claude Code ###
 .claude/
+
+### Session notes ###
+session/
+docs/
