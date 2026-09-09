@@ -120,9 +120,10 @@ public class ExerciseSession extends BaseEntity {
         this.status = ExerciseSessionStatus.COMPLETED;
     }
 
-    public void expire(int validCount, int invalidCount, LocalDateTime completedAt) {
+    public void expire(int validCount, int invalidCount, long validDurationMs, LocalDateTime completedAt) {
         this.validCount = validCount;
         this.invalidCount = invalidCount;
+        this.validDurationMs = validDurationMs;
         this.completedAt = completedAt;
         this.status = ExerciseSessionStatus.EXPIRED;
     }

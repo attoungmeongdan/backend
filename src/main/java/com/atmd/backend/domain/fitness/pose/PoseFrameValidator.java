@@ -13,6 +13,8 @@ import java.util.Set;
 public class PoseFrameValidator {
     private static final int LANDMARK_COUNT = 33;
     private static final double MIN_VISIBILITY = 0.6;
+    private static final double XY_ABSOLUTE_MAX = Math.sqrt(Double.MAX_VALUE / 8.0);
+    private static final double Z_ABSOLUTE_MAX = Double.MAX_VALUE / 5.0;
 
     private static final Set<Integer> CHAIR_STAND_REQUIRED = Set.of(
             PoseLandmarkIndex.LEFT_SHOULDER,
@@ -62,40 +64,48 @@ public class PoseFrameValidator {
             return ValidationResult.invalid("MISSING_LANDMARK", "33개 관절 좌표가 모두 필요합니다.");
         }
 
-        Set<Integer> required = switch (expectedExerciseType) {
+        if (!hasRequiredVisibility(frame.landmarks(), expectedExerciseType)) {
+            return ValidationResult.forPositionRequired();
+        }
+
+        return ValidationResult.success();
+    }
+
+    public boolean hasRequiredVisibility(List<LandmarkDto> landmarks, ExerciseType exerciseType) {
+        if (landmarks == null || landmarks.size() != LANDMARK_COUNT) {
+            return false;
+        }
+
+        Set<Integer> required = switch (exerciseType) {
             case PUSH_UP -> PUSH_UP_REQUIRED;
             case SIT_UP -> SIT_UP_REQUIRED;
             case PLANK -> PLANK_REQUIRED;
             default -> CHAIR_STAND_REQUIRED;
         };
-        long visibleRequired = frame.landmarks().stream()
+        long visibleRequired = landmarks.stream()
                 .filter(landmark -> required.contains(landmark.index()))
                 .filter(landmark -> landmark.visibility() >= MIN_VISIBILITY)
                 .count();
 
-        boolean leftVisible = switch (expectedExerciseType) {
-            case PUSH_UP -> sideVisible(frame.landmarks(), 11, 13, 15, 23, 27);
-            case SIT_UP -> sideVisible(frame.landmarks(), 11, 23, 25);
-            case PLANK -> sideVisible(frame.landmarks(), 11, 23, 25, 27);
-            default -> sideVisible(frame.landmarks(), 11, 23, 25, 27);
+        boolean leftVisible = switch (exerciseType) {
+            case PUSH_UP -> sideVisible(landmarks, 11, 13, 15, 23, 27);
+            case SIT_UP -> sideVisible(landmarks, 11, 23, 25);
+            case PLANK -> sideVisible(landmarks, 11, 23, 25, 27);
+            default -> sideVisible(landmarks, 11, 23, 25, 27);
         };
-        boolean rightVisible = switch (expectedExerciseType) {
-            case PUSH_UP -> sideVisible(frame.landmarks(), 12, 14, 16, 24, 28);
-            case SIT_UP -> sideVisible(frame.landmarks(), 12, 24, 26);
-            case PLANK -> sideVisible(frame.landmarks(), 12, 24, 26, 28);
-            default -> sideVisible(frame.landmarks(), 12, 24, 26, 28);
+        boolean rightVisible = switch (exerciseType) {
+            case PUSH_UP -> sideVisible(landmarks, 12, 14, 16, 24, 28);
+            case SIT_UP -> sideVisible(landmarks, 12, 24, 26);
+            case PLANK -> sideVisible(landmarks, 12, 24, 26, 28);
+            default -> sideVisible(landmarks, 12, 24, 26, 28);
         };
-        int minimumVisible = switch (expectedExerciseType) {
+        int minimumVisible = switch (exerciseType) {
             case PUSH_UP -> 5;
             case SIT_UP -> 3;
             case PLANK -> 4;
             default -> 4;
         };
-        if (visibleRequired < minimumVisible || (!leftVisible && !rightVisible)) {
-            return ValidationResult.forPositionRequired();
-        }
-
-        return ValidationResult.success();
+        return visibleRequired >= minimumVisible && (leftVisible || rightVisible);
     }
 
     private boolean sideVisible(List<LandmarkDto> landmarks, int... indexes) {
@@ -115,6 +125,9 @@ public class PoseFrameValidator {
                 && Double.isFinite(landmark.x())
                 && Double.isFinite(landmark.y())
                 && Double.isFinite(landmark.z())
+                && Math.abs(landmark.x()) <= XY_ABSOLUTE_MAX
+                && Math.abs(landmark.y()) <= XY_ABSOLUTE_MAX
+                && Math.abs(landmark.z()) <= Z_ABSOLUTE_MAX
                 && Double.isFinite(landmark.visibility())
                 && landmark.visibility() >= 0
                 && landmark.visibility() <= 1;

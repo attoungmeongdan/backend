@@ -27,7 +27,11 @@ import com.atmd.backend.domain.user.repository.UserRepository;
 import com.atmd.backend.global.common.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -52,6 +56,9 @@ public class ExerciseSessionService {
     private final SitUpAnalyzer sitUpAnalyzer;
     private final PlankAnalyzer plankAnalyzer;
 
+    @Value("${fitness.exercise-session.idle-timeout-seconds:15}")
+    private long idleTimeoutSeconds;
+
     private final Map<Long, RuntimeExerciseSession> runtimeSessions = new ConcurrentHashMap<>();
 
     @Transactional
@@ -62,6 +69,9 @@ public class ExerciseSessionService {
                 && request.exerciseType() != ExerciseType.PLANK) {
             throw new GeneralException(FitnessErrorCode.UNSUPPORTED_EXERCISE);
         }
+
+        User user = userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new GeneralException(FitnessErrorCode.SESSION_ACCESS_DENIED));
 
         List<ExerciseSession> activeSessions = exerciseSessionRepository.findAllByUserIdAndStatusIn(
                 userId,
@@ -78,12 +88,15 @@ public class ExerciseSessionService {
                     completeRuntime(runtime, ExerciseSessionStatus.EXPIRED, now);
                 }
             } else {
-                activeSession.expire(activeSession.getValidCount(), activeSession.getInvalidCount(), toLocalDateTime(now));
+                activeSession.expire(
+                        activeSession.getValidCount(),
+                        activeSession.getInvalidCount(),
+                        activeSession.getValidDurationMs(),
+                        toLocalDateTime(now)
+                );
             }
         }
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new GeneralException(FitnessErrorCode.SESSION_ACCESS_DENIED));
         ExerciseSession session = exerciseSessionRepository.save(ExerciseSession.create(user, request.exerciseType()));
 
         String ticket = UUID.randomUUID().toString();
@@ -95,19 +108,34 @@ public class ExerciseSessionService {
                         session.getExerciseType(),
                         ticket,
                         Instant.now().plusSeconds(SOCKET_TICKET_VALID_SECONDS),
-                        session.getTimeLimitSeconds()
+                        session.getTimeLimitSeconds(),
+                        idleTimeoutSeconds
                 )
         );
         return ExerciseSessionCreateResponse.from(session, ticket);
     }
 
-    public boolean authorizeWebSocket(Long sessionId, String ticket) {
+    public boolean reserveWebSocketTicket(Long sessionId, String ticket) {
         RuntimeExerciseSession runtime = runtimeSessions.get(sessionId);
         if (runtime == null) {
             return false;
         }
         synchronized (runtime) {
-            return runtime.consumeTicket(ticket, Instant.now());
+            return runtime.reserveTicket(ticket, Instant.now());
+        }
+    }
+
+    public void finishWebSocketHandshake(Long sessionId, String ticket, boolean successful) {
+        RuntimeExerciseSession runtime = runtimeSessions.get(sessionId);
+        if (runtime == null) {
+            return;
+        }
+        synchronized (runtime) {
+            if (successful) {
+                runtime.confirmTicket(ticket);
+            } else {
+                runtime.releaseTicket(ticket);
+            }
         }
     }
 
@@ -138,7 +166,7 @@ public class ExerciseSessionService {
             }
 
             Instant now = Instant.now();
-            runtime.acceptFrame(frame.sequence(), frame.timestamp());
+            runtime.acceptFrame(frame.sequence(), frame.timestamp(), now);
             if (runtime.getStartedAt() == null) {
                 runtime.start(now);
                 ExerciseSession session = getSession(sessionId);
@@ -152,9 +180,18 @@ public class ExerciseSessionService {
 
             List<com.atmd.backend.domain.fitness.dto.request.LandmarkDto> smoothed =
                     frameSmoother.addAndSmooth(runtime.getRecentFrames(), frame.landmarks());
+            if (!frameValidator.hasRequiredVisibility(smoothed, runtime.getExerciseType())) {
+                return response(
+                        "ANALYSIS_RESULT",
+                        runtime,
+                        frame.sequence(),
+                        Map.of(),
+                        List.of(PostureFeedback.positioningRequired(runtime.getExerciseType().name()))
+                );
+            }
             Map<String, Double> metrics = analyze(runtime, smoothed);
 
-            if (runtime.isCompleted()) {
+            if (runtime.isCompletionPending() || runtime.isCompleted()) {
                 return response(
                         "SESSION_COMPLETED",
                         runtime,
@@ -201,6 +238,39 @@ public class ExerciseSessionService {
         return ExerciseSessionResultResponse.from(getOwnedSession(userId, sessionId));
     }
 
+    @Transactional
+    public void expireDisconnectedSession(Long sessionId) {
+        RuntimeExerciseSession runtime = runtimeSessions.get(sessionId);
+        if (runtime == null) {
+            return;
+        }
+        synchronized (runtime) {
+            if (!runtime.isCompleted() && !runtime.isCompletionPending()) {
+                Instant now = Instant.now();
+                if (runtime.getExerciseType() == ExerciseType.PLANK) {
+                    runtime.stopPlankHolding(now);
+                }
+                completeRuntime(runtime, ExerciseSessionStatus.EXPIRED, now);
+            }
+        }
+    }
+
+    @Scheduled(fixedDelayString = "${fitness.exercise-session.cleanup-interval-ms:5000}")
+    @Transactional
+    public void cleanupExpiredSessions() {
+        Instant now = Instant.now();
+        for (RuntimeExerciseSession runtime : runtimeSessions.values()) {
+            synchronized (runtime) {
+                if (!runtime.isCompleted() && !runtime.isCompletionPending() && runtime.isExpired(now)) {
+                    if (runtime.getExerciseType() == ExerciseType.PLANK) {
+                        runtime.stopPlankHolding(now);
+                    }
+                    completeRuntime(runtime, ExerciseSessionStatus.EXPIRED, now);
+                }
+            }
+        }
+    }
+
     private FrameAnalysisResponse response(
             String type,
             RuntimeExerciseSession runtime,
@@ -232,6 +302,7 @@ public class ExerciseSessionService {
             session.expire(
                     runtime.validCount(),
                     runtime.invalidCount(),
+                    runtime.validDurationMs(completedAt),
                     toLocalDateTime(completedAt)
             );
         } else {
@@ -242,8 +313,35 @@ public class ExerciseSessionService {
                     toLocalDateTime(completedAt)
             );
         }
-        runtime.complete();
-        runtimeSessions.remove(runtime.getSessionId(), runtime);
+        finalizeRuntimeAfterCommit(runtime);
+    }
+
+    private void finalizeRuntimeAfterCommit(RuntimeExerciseSession runtime) {
+        runtime.scheduleCompletion();
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            runtime.complete();
+            runtimeSessions.remove(runtime.getSessionId(), runtime);
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                synchronized (runtime) {
+                    runtime.complete();
+                    runtimeSessions.remove(runtime.getSessionId(), runtime);
+                }
+            }
+
+            @Override
+            public void afterCompletion(int status) {
+                if (status != TransactionSynchronization.STATUS_COMMITTED) {
+                    synchronized (runtime) {
+                        runtime.cancelCompletion();
+                    }
+                }
+            }
+        });
     }
 
     private ExerciseSession getOwnedSession(Long userId, Long sessionId) {
@@ -268,7 +366,7 @@ public class ExerciseSessionService {
     }
 
     private void ensureActive(RuntimeExerciseSession runtime) {
-        if (runtime.isCompleted()) {
+        if (runtime.isCompleted() || runtime.isCompletionPending()) {
             throw new GeneralException(FitnessErrorCode.SESSION_NOT_ACTIVE);
         }
     }

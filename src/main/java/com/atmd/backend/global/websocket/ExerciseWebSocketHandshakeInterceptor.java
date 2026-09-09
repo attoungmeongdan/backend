@@ -33,7 +33,7 @@ public class ExerciseWebSocketHandshakeInterceptor implements HandshakeIntercept
                 .getQueryParams();
         String ticket = query.getFirst("ticket");
 
-        if (sessionId == null || ticket == null || !exerciseSessionService.authorizeWebSocket(sessionId, ticket)) {
+        if (sessionId == null || ticket == null || !exerciseSessionService.reserveWebSocketTicket(sessionId, ticket)) {
             response.setStatusCode(HttpStatus.UNAUTHORIZED);
             return false;
         }
@@ -49,6 +49,11 @@ public class ExerciseWebSocketHandshakeInterceptor implements HandshakeIntercept
             WebSocketHandler wsHandler,
             Exception exception
     ) {
+        Long sessionId = extractSessionId(request);
+        String ticket = UriComponentsBuilder.fromUri(request.getURI()).build().getQueryParams().getFirst("ticket");
+        if (sessionId != null && ticket != null) {
+            exerciseSessionService.finishWebSocketHandshake(sessionId, ticket, exception == null);
+        }
     }
 
     private Long extractSessionId(ServerHttpRequest request) {

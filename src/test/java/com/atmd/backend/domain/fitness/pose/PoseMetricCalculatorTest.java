@@ -29,6 +29,20 @@ class PoseMetricCalculatorTest {
         )).isInstanceOf(IllegalArgumentException.class);
     }
 
+    @Test
+    void calculatesAngleWithoutOverflowForLargeFiniteCoordinates() {
+        double large = Math.sqrt(Double.MAX_VALUE / 8.0);
+        LandmarkDto vertex = landmark(0, 0, 0);
+
+        double angle = calculator.calculateAngle(
+                landmark(1, large, 0),
+                vertex,
+                landmark(2, 0, large)
+        );
+
+        assertThat(angle).isCloseTo(90.0, within(0.001));
+    }
+
     private LandmarkDto landmark(int index, double x, double y) {
         return new LandmarkDto(index, x, y, 0, 1, 1.0);
     }

@@ -54,6 +54,15 @@ public class ExercisePoseWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
+    @Override
+    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
+        Long exerciseSessionId = (Long) session.getAttributes()
+                .get(ExerciseWebSocketHandshakeInterceptor.SESSION_ID_ATTRIBUTE);
+        if (exerciseSessionId != null && !CloseStatus.NORMAL.equals(status)) {
+            exerciseSessionService.expireDisconnectedSession(exerciseSessionId);
+        }
+    }
+
     private void sendError(WebSocketSession session, String code, String message) throws IOException {
         Map<String, String> body = Map.of(
                 "type", "ERROR",

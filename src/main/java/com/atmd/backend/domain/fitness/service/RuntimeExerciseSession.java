@@ -21,6 +21,7 @@ class RuntimeExerciseSession {
     private final String socketTicket;
     private final Instant ticketExpiresAt;
     private final int timeLimitSeconds;
+    private final long idleTimeoutSeconds;
     private final ChairStandAnalysisState analysisState = new ChairStandAnalysisState();
     private final PushUpAnalysisState pushUpAnalysisState = new PushUpAnalysisState();
     private final SitUpAnalysisState sitUpAnalysisState = new SitUpAnalysisState();
@@ -29,10 +30,13 @@ class RuntimeExerciseSession {
     private long lastSequence = -1;
     private long lastFrameTimestamp = -1;
     private Instant startedAt;
+    private Instant lastFrameReceivedAt;
     private Instant plankHoldingStartedAt;
     private long validDurationMs;
     private boolean socketTicketConsumed;
+    private boolean socketTicketReserved;
     private boolean completed;
+    private boolean completionPending;
 
     RuntimeExerciseSession(
             Long sessionId,
@@ -40,7 +44,8 @@ class RuntimeExerciseSession {
             ExerciseType exerciseType,
             String socketTicket,
             Instant ticketExpiresAt,
-            int timeLimitSeconds
+            int timeLimitSeconds,
+            long idleTimeoutSeconds
     ) {
         this.sessionId = sessionId;
         this.userId = userId;
@@ -48,14 +53,29 @@ class RuntimeExerciseSession {
         this.socketTicket = socketTicket;
         this.ticketExpiresAt = ticketExpiresAt;
         this.timeLimitSeconds = timeLimitSeconds;
+        this.idleTimeoutSeconds = idleTimeoutSeconds;
     }
 
-    boolean consumeTicket(String ticket, Instant now) {
-        if (socketTicketConsumed || now.isAfter(ticketExpiresAt) || !socketTicket.equals(ticket)) {
+    boolean reserveTicket(String ticket, Instant now) {
+        if (socketTicketConsumed || socketTicketReserved
+                || now.isAfter(ticketExpiresAt) || !socketTicket.equals(ticket)) {
             return false;
         }
-        socketTicketConsumed = true;
+        socketTicketReserved = true;
         return true;
+    }
+
+    void confirmTicket(String ticket) {
+        if (socketTicketReserved && socketTicket.equals(ticket)) {
+            socketTicketReserved = false;
+            socketTicketConsumed = true;
+        }
+    }
+
+    void releaseTicket(String ticket) {
+        if (!socketTicketConsumed && socketTicket.equals(ticket)) {
+            socketTicketReserved = false;
+        }
     }
 
     void start(Instant now) {
@@ -75,20 +95,33 @@ class RuntimeExerciseSession {
         return Math.max(0, timeLimitSeconds * 1000L - elapsed);
     }
 
-    void acceptFrame(long sequence, long timestamp) {
+    void acceptFrame(long sequence, long timestamp, Instant receivedAt) {
         lastSequence = sequence;
         lastFrameTimestamp = timestamp;
+        lastFrameReceivedAt = receivedAt;
     }
 
     boolean isExpired(Instant now) {
         if (startedAt == null) {
             return now.isAfter(ticketExpiresAt);
         }
-        return timeLimitSeconds > 0 && remainingTimeMs(now) == 0;
+        boolean timedOut = timeLimitSeconds > 0 && remainingTimeMs(now) == 0;
+        boolean idle = lastFrameReceivedAt != null
+                && now.isAfter(lastFrameReceivedAt.plusSeconds(idleTimeoutSeconds));
+        return timedOut || idle;
     }
 
     void complete() {
+        completionPending = false;
         completed = true;
+    }
+
+    void scheduleCompletion() {
+        completionPending = true;
+    }
+
+    void cancelCompletion() {
+        completionPending = false;
     }
 
     void startPlankHolding(Instant now) {

@@ -18,7 +18,8 @@ public class PoseMetricCalculator {
             throw new IllegalArgumentException("Cannot calculate an angle from overlapping landmarks");
         }
 
-        double cosine = (firstX * secondX + firstY * secondY) / (firstLength * secondLength);
+        double cosine = (firstX / firstLength) * (secondX / secondLength)
+                + (firstY / firstLength) * (secondY / secondLength);
         double boundedCosine = Math.max(-1.0, Math.min(1.0, cosine));
         return Math.toDegrees(Math.acos(boundedCosine));
     }

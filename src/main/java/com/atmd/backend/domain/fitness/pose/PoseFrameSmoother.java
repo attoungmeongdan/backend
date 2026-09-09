@@ -23,15 +23,16 @@ public class PoseFrameSmoother {
             double y = 0;
             double z = 0;
             double visibility = 0;
+            int sampleCount = 0;
             for (List<LandmarkDto> frame : frames) {
                 LandmarkDto landmark = frame.get(index);
-                x += landmark.x();
-                y += landmark.y();
-                z += landmark.z();
-                visibility += landmark.visibility();
+                sampleCount++;
+                x += (landmark.x() - x) / sampleCount;
+                y += (landmark.y() - y) / sampleCount;
+                z += (landmark.z() - z) / sampleCount;
+                visibility += (landmark.visibility() - visibility) / sampleCount;
             }
-            int size = frames.size();
-            smoothed.add(new LandmarkDto(index, x / size, y / size, z / size, visibility / size, null));
+            smoothed.add(new LandmarkDto(index, x, y, z, visibility, null));
         }
         return smoothed;
     }
