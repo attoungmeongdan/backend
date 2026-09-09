@@ -8,6 +8,12 @@ spring:
     show-sql: true
     open-in-view: false
 
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
 decorator:
   datasource:
     p6spy:

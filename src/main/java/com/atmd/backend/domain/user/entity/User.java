@@ -26,8 +26,8 @@ public class User extends BaseEntity {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @Column
-    private String password;
+    // @Column
+    // private String password;
 
     @Column(nullable = false)
     private String nickname;
@@ -56,15 +56,18 @@ public class User extends BaseEntity {
     @Column
     private Double weight;
 
+    @Column
+    private Double bmi;
+
     @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "address_id")
     private Address address;
 
     @Builder
-    private User(String email, String password, String nickname, Provider provider, String providerId, Role role,
+    private User(String email, String nickname, Provider provider, String providerId, Role role,
                  Integer age, Gender gender, Double height, Double weight, Address address) {
         this.email = email;
-        this.password = password;
+        // this.password = password;
         this.nickname = nickname;
         this.provider = provider;
         this.providerId = providerId;
@@ -74,22 +77,6 @@ public class User extends BaseEntity {
         this.height = height;
         this.weight = weight;
         this.address = address;
-    }
-
-    public static User ofLocal(String email, String encodedPassword, String nickname,
-                                Integer age, Gender gender, Double height, Double weight, Address address) {
-        return User.builder()
-                .email(email)
-                .password(encodedPassword)
-                .nickname(nickname)
-                .provider(Provider.LOCAL)
-                .role(Role.USER)
-                .age(age)
-                .gender(gender)
-                .height(height)
-                .weight(weight)
-                .address(address)
-                .build();
     }
 
     public static User ofOAuth(String email, String nickname, Provider provider, String providerId) {
@@ -111,6 +98,13 @@ public class User extends BaseEntity {
         this.gender = gender;
         this.height = height;
         this.weight = weight;
+        this.bmi = calculateBmi(height, weight);
+    }
+
+    private Double calculateBmi(Double height, Double weight) {
+        if (height == null || weight == null || height <= 0) return null;
+        double heightM = height / 100.0;
+        return Math.round(weight / (heightM * heightM) * 10.0) / 10.0;
     }
 
     public void updateAddress(Address address) {
