@@ -117,6 +117,10 @@ public class AuthService {
             throw new GeneralException(AuthErrorCode.EXPIRED_SIGNUP_TOKEN);
         }
 
+        if (userRepository.existsByEmailAndIsDeletedFalse(email)) {
+            throw new GeneralException(AuthErrorCode.DUPLICATE_EMAIL);
+        }
+
         Provider providerEnum = Provider.valueOf(providerStr);
         if (userRepository.findByProviderAndProviderIdAndIsDeletedFalse(providerEnum, providerId).isPresent()) {
             throw new GeneralException(AuthErrorCode.DUPLICATE_EMAIL);
