@@ -105,10 +105,15 @@ class RuntimeExerciseSession {
         if (startedAt == null) {
             return now.isAfter(ticketExpiresAt);
         }
-        boolean timedOut = timeLimitSeconds > 0 && remainingTimeMs(now) == 0;
-        boolean idle = lastFrameReceivedAt != null
-                && now.isAfter(lastFrameReceivedAt.plusSeconds(idleTimeoutSeconds));
-        return timedOut || idle;
+        return hasTimeLimitElapsed(now) || hasExceededIdleTimeout(now);
+    }
+
+    boolean hasTimeLimitElapsed(Instant now) {
+        return timeLimitSeconds > 0 && remainingTimeMs(now) == 0;
+    }
+
+    private boolean hasExceededIdleTimeout(Instant now) {
+        return lastFrameReceivedAt != null && now.isAfter(lastFrameReceivedAt.plusSeconds(idleTimeoutSeconds));
     }
 
     void complete() {

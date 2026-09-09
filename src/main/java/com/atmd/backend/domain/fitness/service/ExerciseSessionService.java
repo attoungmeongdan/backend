@@ -18,6 +18,7 @@ import com.atmd.backend.domain.fitness.dto.response.PostureFeedback;
 import com.atmd.backend.domain.fitness.entity.ExerciseSession;
 import com.atmd.backend.domain.fitness.enums.ExerciseSessionStatus;
 import com.atmd.backend.domain.fitness.enums.ExerciseType;
+import com.atmd.backend.domain.fitness.enums.ExerciseSessionMode;
 import com.atmd.backend.domain.fitness.exception.FitnessErrorCode;
 import com.atmd.backend.domain.fitness.pose.PoseFrameSmoother;
 import com.atmd.backend.domain.fitness.pose.PoseFrameValidator;
@@ -85,7 +86,10 @@ public class ExerciseSessionService {
             }
             if (runtime != null) {
                 synchronized (runtime) {
-                    completeRuntime(runtime, ExerciseSessionStatus.EXPIRED, now);
+                    ExerciseSessionStatus status = runtime.hasTimeLimitElapsed(now)
+                            ? ExerciseSessionStatus.COMPLETED
+                            : ExerciseSessionStatus.EXPIRED;
+                    completeRuntime(runtime, status, now);
                 }
             } else {
                 activeSession.expire(
@@ -97,7 +101,13 @@ public class ExerciseSessionService {
             }
         }
 
-        ExerciseSession session = exerciseSessionRepository.save(ExerciseSession.create(user, request.exerciseType()));
+        String measurementGroupId = resolveMeasurementGroupId(userId, request);
+        ExerciseSession session = exerciseSessionRepository.save(ExerciseSession.create(
+                user,
+                request.mode(),
+                request.exerciseType(),
+                measurementGroupId
+        ));
 
         String ticket = UUID.randomUUID().toString();
         runtimeSessions.put(
@@ -214,6 +224,9 @@ public class ExerciseSessionService {
     @Transactional
     public ExerciseSessionResultResponse complete(Long userId, Long sessionId) {
         ExerciseSession session = getOwnedSession(userId, sessionId);
+        if (session.getMode() != ExerciseSessionMode.WORKOUT) {
+            throw new GeneralException(FitnessErrorCode.MEASUREMENT_MANUAL_COMPLETE_NOT_ALLOWED);
+        }
         RuntimeExerciseSession runtime = runtimeSessions.get(sessionId);
         if (runtime == null) {
             if (session.getStatus() == ExerciseSessionStatus.COMPLETED) {
@@ -265,7 +278,10 @@ public class ExerciseSessionService {
                     if (runtime.getExerciseType() == ExerciseType.PLANK) {
                         runtime.stopPlankHolding(now);
                     }
-                    completeRuntime(runtime, ExerciseSessionStatus.EXPIRED, now);
+                    ExerciseSessionStatus status = runtime.hasTimeLimitElapsed(now)
+                            ? ExerciseSessionStatus.COMPLETED
+                            : ExerciseSessionStatus.EXPIRED;
+                    completeRuntime(runtime, status, now);
                 }
             }
         }
@@ -373,6 +389,39 @@ public class ExerciseSessionService {
 
     private LocalDateTime toLocalDateTime(Instant instant) {
         return LocalDateTime.ofInstant(instant, SERVER_ZONE);
+    }
+
+    private String resolveMeasurementGroupId(Long userId, ExerciseSessionCreateRequest request) {
+        if (request.mode() == ExerciseSessionMode.WORKOUT) {
+            return null;
+        }
+        LocalDateTime startOfToday = LocalDateTime.now(SERVER_ZONE).toLocalDate().atStartOfDay();
+        LocalDateTime startOfTomorrow = startOfToday.plusDays(1);
+        if (request.measurementGroupId() == null || request.measurementGroupId().isBlank()) {
+            if (exerciseSessionRepository.existsByUserIdAndModeAndCreatedAtBetweenAndIsDeletedFalse(
+                    userId, ExerciseSessionMode.MEASUREMENT, startOfToday, startOfTomorrow
+            )) {
+                throw new GeneralException(FitnessErrorCode.DAILY_MEASUREMENT_EXISTS);
+            }
+            return UUID.randomUUID().toString();
+        }
+        String groupId;
+        try {
+            groupId = UUID.fromString(request.measurementGroupId()).toString();
+        } catch (IllegalArgumentException exception) {
+            throw new GeneralException(FitnessErrorCode.INVALID_MEASUREMENT_GROUP_ID);
+        }
+        if (!exerciseSessionRepository.existsByUserIdAndModeAndMeasurementGroupIdAndCreatedAtBetweenAndIsDeletedFalse(
+                userId, ExerciseSessionMode.MEASUREMENT, groupId, startOfToday, startOfTomorrow
+        )) {
+            throw new GeneralException(FitnessErrorCode.MEASUREMENT_GROUP_NOT_FOUND);
+        }
+        if (exerciseSessionRepository.existsByUserIdAndMeasurementGroupIdAndExerciseTypeAndIsDeletedFalse(
+                userId, groupId, request.exerciseType()
+        )) {
+            throw new GeneralException(FitnessErrorCode.EXERCISE_ALREADY_MEASURED);
+        }
+        return groupId;
     }
 
     private Map<String, Double> analyze(

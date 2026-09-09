@@ -3,7 +3,9 @@ package com.atmd.backend.domain.fitness.controller;
 import com.atmd.backend.domain.fitness.dto.request.ExerciseSessionCreateRequest;
 import com.atmd.backend.domain.fitness.dto.response.ExerciseSessionCreateResponse;
 import com.atmd.backend.domain.fitness.dto.response.ExerciseSessionResultResponse;
+import com.atmd.backend.domain.fitness.dto.response.MeasurementProgressResponse;
 import com.atmd.backend.domain.fitness.service.ExerciseSessionService;
+import com.atmd.backend.domain.fitness.service.MeasurementFlowService;
 import com.atmd.backend.global.auth.util.SecurityUtil;
 import com.atmd.backend.global.common.response.ApiResponse;
 import jakarta.validation.Valid;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class ExerciseSessionController {
     private final ExerciseSessionService exerciseSessionService;
+    private final MeasurementFlowService measurementFlowService;
 
     @PostMapping
     public ResponseEntity<ApiResponse<ExerciseSessionCreateResponse>> create(
@@ -42,6 +45,27 @@ public class ExerciseSessionController {
     public ResponseEntity<ApiResponse<ExerciseSessionResultResponse>> getResult(@PathVariable Long sessionId) {
         return ResponseEntity.ok(ApiResponse.success(
                 exerciseSessionService.getResult(SecurityUtil.getCurrentUserId(), sessionId)
+        ));
+    }
+
+    @GetMapping("/measurement/progress")
+    public ResponseEntity<ApiResponse<MeasurementProgressResponse>> getMeasurementProgress() {
+        return ResponseEntity.ok(ApiResponse.success(
+                measurementFlowService.getTodayProgress(SecurityUtil.getCurrentUserId())
+        ));
+    }
+
+    @PostMapping("/measurement/resume")
+    public ResponseEntity<ApiResponse<ExerciseSessionCreateResponse>> resumeMeasurement() {
+        return ResponseEntity.ok(ApiResponse.success(
+                measurementFlowService.resume(SecurityUtil.getCurrentUserId())
+        ));
+    }
+
+    @PostMapping("/measurement/restart")
+    public ResponseEntity<ApiResponse<ExerciseSessionCreateResponse>> restartMeasurement() {
+        return ResponseEntity.ok(ApiResponse.success(
+                measurementFlowService.restart(SecurityUtil.getCurrentUserId())
         ));
     }
 }

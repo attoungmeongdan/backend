@@ -14,7 +14,18 @@ public enum FitnessErrorCode implements BaseErrorCode {
     SESSION_ACCESS_DENIED(HttpStatus.FORBIDDEN, "FITNESS_403_1", "해당 측정 세션에 접근할 수 없습니다."),
     SESSION_NOT_ACTIVE(HttpStatus.CONFLICT, "FITNESS_409_2", "측정 가능한 상태의 세션이 아닙니다."),
     INVALID_SOCKET_TICKET(HttpStatus.UNAUTHORIZED, "FITNESS_401_1", "유효하지 않은 WebSocket 티켓입니다."),
-    INVALID_POSE_FRAME(HttpStatus.BAD_REQUEST, "FITNESS_400_2", "유효하지 않은 관절 프레임입니다.");
+    INVALID_POSE_FRAME(HttpStatus.BAD_REQUEST, "FITNESS_400_2", "유효하지 않은 관절 프레임입니다."),
+    INVALID_MEASUREMENT_GROUP_ID(HttpStatus.BAD_REQUEST, "FITNESS_400_3", "측정 그룹 ID 형식이 올바르지 않습니다."),
+    DAILY_MEASUREMENT_EXISTS(HttpStatus.CONFLICT, "FITNESS_409_3", "오늘의 체력측정이 이미 시작되었습니다."),
+    MEASUREMENT_GROUP_NOT_FOUND(HttpStatus.NOT_FOUND, "FITNESS_404_2", "오늘 생성한 측정 그룹을 찾을 수 없습니다."),
+    EXERCISE_ALREADY_MEASURED(HttpStatus.CONFLICT, "FITNESS_409_4", "해당 운동은 이미 측정했습니다."),
+    MEASUREMENT_NOT_STARTED(HttpStatus.NOT_FOUND, "FITNESS_404_3", "오늘 시작한 체력측정이 없습니다."),
+    MEASUREMENT_ALREADY_COMPLETED(HttpStatus.CONFLICT, "FITNESS_409_5", "오늘의 체력측정이 이미 완료되었습니다."),
+    MEASUREMENT_MANUAL_COMPLETE_NOT_ALLOWED(
+            HttpStatus.CONFLICT,
+            "FITNESS_409_6",
+            "체력측정 세션은 수동으로 종료할 수 없습니다."
+    );
 
     private final HttpStatus status;
     private final String code;
