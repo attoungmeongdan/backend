@@ -83,6 +83,10 @@ jwt:
   access-token-expiration: ${JWT_ACCESS_EXPIRATION:3600000}
   refresh-token-expiration: ${JWT_REFRESH_EXPIRATION:1209600000}
 
+signup-token:
+  secret-key: ${SIGNUP_TOKEN_SECRET}
+  expiration: ${SIGNUP_TOKEN_EXPIRATION:1800000}
+
 springdoc:
   swagger-ui:
     path: /swagger-ui/index.html

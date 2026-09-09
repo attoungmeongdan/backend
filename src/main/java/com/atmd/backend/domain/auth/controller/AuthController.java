@@ -1,8 +1,10 @@
 package com.atmd.backend.domain.auth.controller;
 
 import com.atmd.backend.domain.auth.dto.request.LoginRequestDTO;
+import com.atmd.backend.domain.auth.dto.request.OAuthSignupRequestDTO;
 import com.atmd.backend.domain.auth.dto.request.SignupRequestDTO;
 import com.atmd.backend.domain.auth.dto.response.AuthTokenResponseDTO;
+import com.atmd.backend.domain.auth.dto.response.OAuthCallbackResponseDTO;
 import com.atmd.backend.domain.auth.service.AuthService;
 import com.atmd.backend.global.auth.oauth.service.OAuthService;
 import com.atmd.backend.global.auth.util.SecurityUtil;
@@ -56,11 +58,19 @@ public class AuthController {
     }
 
     @GetMapping("/oauth2/{provider}/callback")
-    public ResponseEntity<ApiResponse<AuthTokenResponseDTO>> oauthCallback(
+    public ResponseEntity<ApiResponse<OAuthCallbackResponseDTO>> oauthCallback(
             @PathVariable String provider,
             @RequestParam String code,
             @RequestParam String state,
             HttpServletResponse response) {
-        return ResponseEntity.ok(ApiResponse.success(authService.oauthLogin(provider, code, state, response)));
+        return ResponseEntity.ok(ApiResponse.success(authService.handleOAuthCallback(provider, code, state, response)));
+    }
+
+    @PostMapping("/oauth2/signup")
+    public ResponseEntity<ApiResponse<AuthTokenResponseDTO>> oauthSignup(
+            @CookieValue(name = "signup_token", required = false) String signupToken,
+            @Valid @RequestBody OAuthSignupRequestDTO request,
+            HttpServletResponse response) {
+        return ResponseEntity.ok(ApiResponse.success(authService.oauthSignup(signupToken, request, response)));
     }
 }

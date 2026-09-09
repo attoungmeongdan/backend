@@ -1,5 +1,7 @@
 package com.atmd.backend.domain.user.entity;
 
+import com.atmd.backend.domain.address.entity.Address;
+import com.atmd.backend.domain.user.entity.enums.Gender;
 import com.atmd.backend.domain.user.entity.enums.Provider;
 import com.atmd.backend.domain.user.entity.enums.Role;
 import com.atmd.backend.global.common.entity.BaseEntity;
@@ -41,23 +43,52 @@ public class User extends BaseEntity {
     @Column(nullable = false)
     private Role role;
 
+    @Column
+    private Integer age;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 10)
+    private Gender gender;
+
+    @Column
+    private Double height;
+
+    @Column
+    private Double weight;
+
+    @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "address_id")
+    private Address address;
+
     @Builder
-    private User(String email, String password, String nickname, Provider provider, String providerId, Role role) {
+    private User(String email, String password, String nickname, Provider provider, String providerId, Role role,
+                 Integer age, Gender gender, Double height, Double weight, Address address) {
         this.email = email;
         this.password = password;
         this.nickname = nickname;
         this.provider = provider;
         this.providerId = providerId;
         this.role = role;
+        this.age = age;
+        this.gender = gender;
+        this.height = height;
+        this.weight = weight;
+        this.address = address;
     }
 
-    public static User ofLocal(String email, String encodedPassword, String nickname) {
+    public static User ofLocal(String email, String encodedPassword, String nickname,
+                                Integer age, Gender gender, Double height, Double weight, Address address) {
         return User.builder()
                 .email(email)
                 .password(encodedPassword)
                 .nickname(nickname)
                 .provider(Provider.LOCAL)
                 .role(Role.USER)
+                .age(age)
+                .gender(gender)
+                .height(height)
+                .weight(weight)
+                .address(address)
                 .build();
     }
 
@@ -73,5 +104,16 @@ public class User extends BaseEntity {
 
     public void updateNickname(String nickname) {
         this.nickname = nickname;
+    }
+
+    public void updateProfile(Integer age, Gender gender, Double height, Double weight) {
+        this.age = age;
+        this.gender = gender;
+        this.height = height;
+        this.weight = weight;
+    }
+
+    public void updateAddress(Address address) {
+        this.address = address;
     }
 }
