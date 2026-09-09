@@ -40,7 +40,8 @@ public class SecurityConfig {
                                 "/actuator/health/**",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
-                                "/api/v1/auth/**"
+                                "/api/v1/auth/**",
+                                "/ws/v1/exercise-sessions/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
