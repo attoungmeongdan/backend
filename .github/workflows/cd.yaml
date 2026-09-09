@@ -69,6 +69,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ap-northeast-2
+          role-session-tagging: false
 
       # [9] docker-compose-prod.yaml을 base64로 인코딩해 SSM을 통해 EC2에 전송
       # SSH 없이 SSM Send-Command로 파일을 EC2에 동기화
