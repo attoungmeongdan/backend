@@ -2,6 +2,7 @@ package com.atmd.backend.domain.fitness.entity;
 
 import com.atmd.backend.domain.fitness.enums.EvaluationStandard;
 import com.atmd.backend.domain.fitness.enums.ExerciseSessionStatus;
+import com.atmd.backend.domain.fitness.enums.ExerciseSessionMode;
 import com.atmd.backend.domain.fitness.enums.ExerciseType;
 import com.atmd.backend.domain.fitness.enums.MeasurementType;
 import com.atmd.backend.domain.user.entity.User;
@@ -42,6 +43,14 @@ public class ExerciseSession extends BaseEntity {
     private ExerciseType exerciseType;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "session_mode", nullable = false, length = 20,
+            columnDefinition = "varchar(20) default 'MEASUREMENT'")
+    private ExerciseSessionMode mode;
+
+    @Column(name = "measurement_group_id", length = 36)
+    private String measurementGroupId;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "measurement_type", nullable = false, length = 30)
     private MeasurementType measurementType;
 
@@ -76,14 +85,18 @@ public class ExerciseSession extends BaseEntity {
 
     private ExerciseSession(
             User user,
+            ExerciseSessionMode mode,
             ExerciseType exerciseType,
             MeasurementType measurementType,
             EvaluationStandard evaluationStandard,
             int timeLimitSeconds,
-            String ruleVersion
+            String ruleVersion,
+            String measurementGroupId
     ) {
         this.user = user;
+        this.mode = mode;
         this.exerciseType = exerciseType;
+        this.measurementGroupId = measurementGroupId;
         this.measurementType = measurementType;
         this.evaluationStandard = evaluationStandard;
         this.status = ExerciseSessionStatus.CREATED;
@@ -91,16 +104,27 @@ public class ExerciseSession extends BaseEntity {
         this.ruleVersion = ruleVersion;
     }
 
-    public static ExerciseSession create(User user, ExerciseType exerciseType) {
+    public static ExerciseSession create(
+            User user,
+            ExerciseSessionMode mode,
+            ExerciseType exerciseType,
+            String measurementGroupId
+    ) {
+        int timeLimitSeconds = mode == ExerciseSessionMode.WORKOUT ? 0 : switch (exerciseType) {
+            case CHAIR_STAND -> 30;
+            case PUSH_UP, SIT_UP -> 60;
+            case PLANK -> 0;
+        };
+
         return switch (exerciseType) {
-            case CHAIR_STAND -> new ExerciseSession(user, exerciseType, MeasurementType.REPETITION,
-                    EvaluationStandard.KSPO, 30, "CHAIR_STAND_V1");
-            case PUSH_UP -> new ExerciseSession(user, exerciseType, MeasurementType.REPETITION,
-                    EvaluationStandard.FITPLE, 60, "PUSH_UP_V1");
-            case SIT_UP -> new ExerciseSession(user, exerciseType, MeasurementType.REPETITION,
-                    EvaluationStandard.KSPO, 60, "SIT_UP_V1");
-            case PLANK -> new ExerciseSession(user, exerciseType, MeasurementType.VALID_DURATION,
-                    EvaluationStandard.FITPLE, 0, "PLANK_V1");
+            case CHAIR_STAND -> new ExerciseSession(user, mode, exerciseType, MeasurementType.REPETITION,
+                    EvaluationStandard.KSPO, timeLimitSeconds, "CHAIR_STAND_V1", measurementGroupId);
+            case PUSH_UP -> new ExerciseSession(user, mode, exerciseType, MeasurementType.REPETITION,
+                    EvaluationStandard.FITPLE, timeLimitSeconds, "PUSH_UP_V1", measurementGroupId);
+            case SIT_UP -> new ExerciseSession(user, mode, exerciseType, MeasurementType.REPETITION,
+                    EvaluationStandard.KSPO, timeLimitSeconds, "SIT_UP_V1", measurementGroupId);
+            case PLANK -> new ExerciseSession(user, mode, exerciseType, MeasurementType.VALID_DURATION,
+                    EvaluationStandard.FITPLE, timeLimitSeconds, "PLANK_V1", measurementGroupId);
             default -> throw new IllegalArgumentException("Unsupported exercise: " + exerciseType);
         };
     }
@@ -130,5 +154,11 @@ public class ExerciseSession extends BaseEntity {
 
     public boolean belongsTo(Long userId) {
         return user.getId().equals(userId);
+    }
+
+    public void discardMeasurement(LocalDateTime discardedAt) {
+        this.status = ExerciseSessionStatus.EXPIRED;
+        this.completedAt = discardedAt;
+        softDelete();
     }
 }

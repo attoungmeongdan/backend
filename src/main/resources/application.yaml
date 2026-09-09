@@ -60,6 +60,11 @@ aws:
     bucket: ${AWS_S3_BUCKET}
     cloudfront-domain: ${AWS_CLOUDFRONT_DOMAIN}
 
+kakao:
+  local:
+    rest-api-key: ${KAKAO_LOCAL_REST_API_KEY:}
+    base-url: https://dapi.kakao.com
+
 oauth:
   kakao:
     client-id: ${KAKAO_CLIENT_ID}
