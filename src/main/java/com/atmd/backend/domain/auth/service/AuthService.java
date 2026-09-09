@@ -22,7 +22,6 @@ import com.atmd.backend.global.auth.signupToken.SignupTokenService;
 import com.atmd.backend.global.common.exception.GeneralException;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,7 +33,6 @@ import java.util.Optional;
 public class AuthService {
 
     private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
     private final JwtService jwtService;
     private final OAuthService oAuthService;
@@ -45,36 +43,12 @@ public class AuthService {
 
     @Transactional
     public AuthTokenResponseDTO signup(SignupRequestDTO request, HttpServletResponse response) {
-        if (userRepository.existsByEmailAndIsDeletedFalse(request.getEmail())) {
-            throw new GeneralException(AuthErrorCode.DUPLICATE_EMAIL);
-        }
-
-        Address address = buildAddress(request.getAddress());
-
-        User user = User.ofLocal(
-                request.getEmail(),
-                passwordEncoder.encode(request.getPassword()),
-                request.getNickname(),
-                request.getAge(),
-                request.getGender(),
-                request.getHeight(),
-                request.getWeight(),
-                address
-        );
-        userRepository.save(user);
-        return issueTokens(user, response);
+        throw new GeneralException(AuthErrorCode.LOCAL_SIGNUP_DISABLED);
     }
 
     @Transactional(readOnly = true)
     public AuthTokenResponseDTO login(LoginRequestDTO request, HttpServletResponse response) {
-        User user = userRepository.findByEmailAndIsDeletedFalse(request.getEmail())
-                .filter(u -> u.getProvider() == Provider.LOCAL)
-                .orElseThrow(() -> new GeneralException(AuthErrorCode.INVALID_CREDENTIALS));
-
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new GeneralException(AuthErrorCode.INVALID_CREDENTIALS);
-        }
-        return issueTokens(user, response);
+        throw new GeneralException(AuthErrorCode.LOCAL_LOGIN_DISABLED);
     }
 
     @Transactional
@@ -123,7 +97,7 @@ public class AuthService {
 
         Provider providerEnum = Provider.valueOf(providerStr);
         if (userRepository.findByProviderAndProviderIdAndIsDeletedFalse(providerEnum, providerId).isPresent()) {
-            throw new GeneralException(AuthErrorCode.DUPLICATE_EMAIL);
+            throw new GeneralException(AuthErrorCode.DUPLICATE_PROVIDER);
         }
 
         Address address = buildAddress(request.getAddress());
@@ -153,7 +127,7 @@ public class AuthService {
             throw new GeneralException(AuthErrorCode.INVALID_TOKEN);
         }
         if (!jwtProvider.isRefreshToken(refreshToken)) {
-            throw new GeneralException(AuthErrorCode.INVALID_TOKEN);
+            throw new GeneralException(AuthErrorCode.TOKEN_TYPE_MISMATCH);
         }
 
         Long userId = jwtProvider.getUserIdFromToken(refreshToken);

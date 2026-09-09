@@ -17,6 +17,7 @@ public class UserProfileResponseDTO {
     private String gender;
     private Double height;
     private Double weight;
+    private Double bmi;
     private AddressResponse address;
 
     public static UserProfileResponseDTO from(User user) {
@@ -30,6 +31,7 @@ public class UserProfileResponseDTO {
                 .gender(user.getGender() != null ? user.getGender().name() : null)
                 .height(user.getHeight())
                 .weight(user.getWeight())
+                .bmi(user.getBmi())
                 .address(addr != null ? AddressResponse.from(addr) : null)
                 .build();
     }

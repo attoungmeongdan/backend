@@ -18,13 +18,10 @@ public class SignupRequestDTO {
     private String email;
 
     @NotBlank
-    @Size(min = 8, max = 16, message = "비밀번호는 8자 이상 16자 이하여야 합니다.")
-    private String password;
-
-    @NotBlank
+    @Size(min = 1)
     private String nickname;
 
-    @Min(0)
+    @Min(1)
     private Integer age;
     private Gender gender;
     @Positive

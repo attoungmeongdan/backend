@@ -14,6 +14,8 @@ import java.util.List;
 import java.time.LocalDateTime;
 
 public interface ExerciseSessionRepository extends JpaRepository<ExerciseSession, Long> {
+    void deleteAllByUserId(Long userId);
+
     List<ExerciseSession> findAllByUserIdAndStatusIn(Long userId, Collection<ExerciseSessionStatus> statuses);
 
     boolean existsByUserIdAndModeAndCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalse(
