@@ -58,4 +58,12 @@ public interface ExerciseSessionRepository extends JpaRepository<ExerciseSession
     List<ExerciseSession> findAllByUserIdAndMeasurementGroupIdInAndStatusAndIsDeletedFalse(
             Long userId, Collection<String> groupIds, ExerciseSessionStatus status
     );
+
+    List<ExerciseSession> findAllByUserIdAndModeAndStatusAndCompletedAtGreaterThanEqualAndCompletedAtLessThanAndIsDeletedFalse(
+            Long userId,
+            ExerciseSessionMode mode,
+            ExerciseSessionStatus status,
+            LocalDateTime start,
+            LocalDateTime end
+    );
 }

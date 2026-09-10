@@ -12,6 +12,8 @@ services:
       DB_PORT: 5432
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY is required}
+      OPENAI_EMBEDDING_INITIALIZE_ON_STARTUP: "false"
       TZ: Asia/Seoul
     depends_on:
       postgres:
@@ -26,8 +28,30 @@ services:
       start_period: 60s
     restart: unless-stopped
 
+  embedding-init:
+    profiles: ["embedding-batch"]
+    image: ${DOCKERHUB_USERNAME}/atmd-backend:latest
+    env_file:
+      - .env.prod
+    environment:
+      SPRING_PROFILES_ACTIVE: prod,embedding-batch
+      SERVER_PORT: 0
+      DB_HOST: postgres
+      DB_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY is required}
+      OPENAI_EMBEDDING_INITIALIZE_ON_STARTUP: "true"
+      TZ: Asia/Seoul
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: "no"
+
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: atmd-postgres
     env_file:
       - .env.prod

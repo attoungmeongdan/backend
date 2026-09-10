@@ -118,7 +118,7 @@ jobs:
               "cd /home/ubuntu/atmd",
               "ENV_FILE=/home/ubuntu/atmd/.env.prod",
               "COMPOSE_FILE=/home/ubuntu/atmd/docker-compose-prod.yaml",
-              "docker-compose --env-file $ENV_FILE -f $COMPOSE_FILE pull app",
+              "docker-compose --env-file $ENV_FILE -f $COMPOSE_FILE pull app postgres",
               "if docker-compose --env-file $ENV_FILE -f $COMPOSE_FILE up -d; then echo compose up succeeded; else docker-compose --env-file $ENV_FILE -f $COMPOSE_FILE down && docker-compose --env-file $ENV_FILE -f $COMPOSE_FILE up -d; fi",
               "docker-compose --env-file $ENV_FILE -f $COMPOSE_FILE ps",
               "docker image prune -f"
