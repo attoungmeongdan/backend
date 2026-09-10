@@ -35,10 +35,10 @@ public class CalendarController {
     @GetMapping
     public ResponseEntity<ApiResponse<CalendarResponseDTO>> getMonthlyCalendar(
             @Parameter(description = "조회할 연도 (예: 2026)", example = "2026")
-            @RequestParam int year,
+            @RequestParam(name = "year") int year,
 
             @Parameter(description = "조회할 월 (1~12)", example = "9")
-            @RequestParam int month) {
+            @RequestParam(name = "month") int month) {
 
         Long currentUserId = SecurityUtil.getCurrentUserId();
         CalendarResponseDTO response = calendarService.getMonthlyCalendar(currentUserId, year, month);

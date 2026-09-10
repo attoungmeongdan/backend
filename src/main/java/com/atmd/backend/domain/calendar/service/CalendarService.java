@@ -22,7 +22,8 @@ public class CalendarService {
     private final CalendarRepository calendarRepository;
 
     public CalendarResponseDTO getMonthlyCalendar(Long userId, int year, int month) {
-        if (month < 1 || month > 12 || year < 1900) {
+        // 1. 월 범위 및 연도 상한/하한 유효성 검증 (Fix: year 상한 검증 추가)
+        if (month < 1 || month > 12 || year < 1900 || year > 9999) {
             throw new GeneralException(CalendarErrorCode.INVALID_YEAR_MONTH);
         }
 
@@ -33,17 +34,27 @@ public class CalendarService {
         List<Calendar> records = calendarRepository
                 .findByUserIdAndExerciseDateBetweenAndIsDeletedFalse(userId, startDate, endDate);
 
-        int completedDays = (int) records.stream()
-                .filter(Calendar::getIsCompleted)
-                .count();
-
         LocalDate today = LocalDate.now();
         int totalTargetDays;
-        if (year == today.getYear() && month == today.getMonthValue()) {
+        boolean isCurrentMonth = (year == today.getYear() && month == today.getMonthValue());
+
+        if (isCurrentMonth) {
             totalTargetDays = today.getDayOfMonth();
         } else {
             totalTargetDays = yearMonth.lengthOfMonth();
         }
+
+        // 2. 완료 일수 계산 (Fix: 달성률 초과 방지를 위해 미래 날짜 완료 기록 제외)
+        int completedDays = (int) records.stream()
+                .filter(Calendar::getIsCompleted)
+                .filter(record -> {
+                    // 당월인 경우 오늘 이하의 기록만 완료 일수에 포함
+                    if (isCurrentMonth) {
+                        return !record.getExerciseDate().isAfter(today);
+                    }
+                    return true;
+                })
+                .count();
 
         int achievementRate = totalTargetDays == 0 ? 0 : (int) Math.round(((double) completedDays / totalTargetDays) * 100);
 
