@@ -1,6 +1,7 @@
 package com.atmd.backend.domain.calendar.service;
 
 import com.atmd.backend.domain.calendar.dto.response.CalendarResponseDTO;
+import com.atmd.backend.domain.calendar.dto.response.RecentExerciseStatusDTO;
 import com.atmd.backend.domain.calendar.entity.Calendar;
 import com.atmd.backend.domain.calendar.exception.CalendarErrorCode;
 import com.atmd.backend.domain.calendar.repository.CalendarRepository;
@@ -10,8 +11,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.YearMonth;
-import java.util.List;
+import java.time.format.TextStyle;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -73,5 +77,42 @@ public class CalendarService {
                 .achievementRate(achievementRate)
                 .dailyRecords(dailyRecords)
                 .build();
+    }
+
+    public List<RecentExerciseStatusDTO> getRecentSevenDaysStatus(Long userId) {
+
+        LocalDate today = LocalDate.now();
+        LocalDate startDate = today.minusDays(6);
+
+        List<LocalDate> completedDates =
+                calendarRepository.findCompletedDatesByUserIdAndDateRange(
+                        userId,
+                        startDate,
+                        today
+                );
+
+        Set<LocalDate> completedDateSet = new HashSet<>(completedDates);
+
+        List<RecentExerciseStatusDTO> result = new ArrayList<>();
+
+        for (int i = 0; i < 7; i++) {
+
+            LocalDate currentDate = startDate.plusDays(i);
+
+            String dayOfWeek = currentDate.getDayOfWeek()
+                    .getDisplayName(TextStyle.SHORT, Locale.KOREAN);
+
+            boolean isCompleted = completedDateSet.contains(currentDate);
+
+            result.add(
+                    new RecentExerciseStatusDTO(
+                            currentDate,
+                            dayOfWeek,
+                            isCompleted
+                    )
+            );
+        }
+
+        return result;
     }
 }

@@ -1,6 +1,7 @@
 package com.atmd.backend.domain.calendar.service;
 
 import com.atmd.backend.domain.calendar.dto.response.CalendarResponseDTO;
+import com.atmd.backend.domain.calendar.dto.response.RecentExerciseStatusDTO;
 import com.atmd.backend.domain.calendar.entity.Calendar;
 import com.atmd.backend.domain.calendar.exception.CalendarErrorCode;
 import com.atmd.backend.domain.calendar.repository.CalendarRepository;
@@ -88,6 +89,48 @@ class CalendarServiceTest {
                     .isInstanceOf(GeneralException.class)
                     .extracting("errorCode")
                     .isEqualTo(CalendarErrorCode.INVALID_YEAR_MONTH);
+        }
+        @Test
+        @DisplayName("최근 7일 운동 완료 상태를 정상 반환한다")
+        void getRecentSevenDaysStatus_Success() {
+            // given
+            Long userId = 1L;
+
+            LocalDate today = LocalDate.now();
+            LocalDate startDate = today.minusDays(6);
+
+            LocalDate completedDate1 = startDate;
+            LocalDate completedDate2 = startDate.plusDays(2);
+            LocalDate completedDate3 = today;
+
+            given(calendarRepository.findCompletedDatesByUserIdAndDateRange(
+                    eq(userId),
+                    eq(startDate),
+                    eq(today)
+            )).willReturn(List.of(
+                    completedDate1,
+                    completedDate2,
+                    completedDate3
+            ));
+
+            // when
+            List<RecentExerciseStatusDTO> result =
+                    calendarService.getRecentSevenDaysStatus(userId);
+
+            // then
+            assertThat(result).hasSize(7);
+
+            assertThat(result.get(0).date()).isEqualTo(startDate);
+            assertThat(result.get(0).isCompleted()).isTrue();
+
+            assertThat(result.get(1).date()).isEqualTo(startDate.plusDays(1));
+            assertThat(result.get(1).isCompleted()).isFalse();
+
+            assertThat(result.get(2).date()).isEqualTo(completedDate2);
+            assertThat(result.get(2).isCompleted()).isTrue();
+
+            assertThat(result.get(6).date()).isEqualTo(today);
+            assertThat(result.get(6).isCompleted()).isTrue();
         }
     }
 }
