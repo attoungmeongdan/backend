@@ -2,12 +2,11 @@ package com.atmd.backend.domain.calendar.service;
 
 import com.atmd.backend.domain.calendar.dto.response.CalendarResponseDTO;
 import com.atmd.backend.domain.calendar.dto.response.RecentExerciseStatusDTO;
-import com.atmd.backend.domain.calendar.entity.Calendar;
 import com.atmd.backend.domain.calendar.exception.CalendarErrorCode;
-import com.atmd.backend.domain.calendar.repository.CalendarRepository;
 import com.atmd.backend.domain.fitness.entity.ExerciseSession;
 import com.atmd.backend.domain.fitness.enums.ExerciseSessionMode;
 import com.atmd.backend.domain.fitness.enums.ExerciseSessionStatus;
+import com.atmd.backend.domain.fitness.enums.ExerciseType;
 import com.atmd.backend.domain.fitness.repository.ExerciseSessionRepository;
 import com.atmd.backend.global.common.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.YearMonth;
 import java.time.format.TextStyle;
 import java.util.*;
@@ -27,7 +25,6 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class CalendarService {
 
-    private final CalendarRepository calendarRepository;
     private final ExerciseSessionRepository exerciseSessionRepository;
 
     public CalendarResponseDTO getMonthlyCalendar(Long userId, int year, int month) {
@@ -51,12 +48,7 @@ public class CalendarService {
                 ? today.getDayOfMonth()
                 : yearMonth.lengthOfMonth();
 
-        /*
-         * 해당 월의 WORKOUT 완료 세션 조회
-         *
-         * start: 해당 월 1일 00:00
-         * end: 다음 달 1일 00:00
-         */
+        // 해당 월의 WORKOUT 완료 세션 조회
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.plusDays(1).atStartOfDay();
 
@@ -70,27 +62,14 @@ public class CalendarService {
                                 endDateTime
                         );
 
-        /*
-         * 날짜별 서로 다른 운동 종류 개수 계산
-         *
-         * 예:
-         * 9/10 CHAIR_STAND
-         * 9/10 PUSH_UP
-         * 9/10 PUSH_UP
-         * 9/10 PLANK
-         *
-         * → 9/10 = 3
-         */
-        Map<LocalDate, Set<com.atmd.backend.domain.fitness.enums.ExerciseType>> exercisesByDate =
-                new HashMap<>();
+        // 날짜별 서로 다른 운동 종류 개수 계산
+        Map<LocalDate, Set<ExerciseType>> exercisesByDate = new HashMap<>();
 
         for (ExerciseSession session : sessions) {
 
             LocalDate exerciseDate = session.getCompletedAt().toLocalDate();
 
-            /*
-             * 당월인 경우 오늘 이후의 데이터는 캘린더 달성률에 포함하지 않음
-             */
+            // 당월인 경우 오늘 이후의 데이터는 캘린더 달성률에 포함하지 않음
             if (isCurrentMonth && exerciseDate.isAfter(today)) {
                 continue;
             }
@@ -119,18 +98,19 @@ public class CalendarService {
                         : (int) Math.round(
                         ((double) completedDays / totalTargetDays) * 100
                 );
-        
-        // 기록이 있는 날짜만 반환
-        List<CalendarResponseDTO.DailyRecord> dailyRecords =
-                exerciseCountByDate.entrySet().stream()
-                        .sorted(Map.Entry.comparingByKey())
-                        .map(entry ->
-                                CalendarResponseDTO.DailyRecord.builder()
-                                        .date(entry.getKey())
-                                        .exerciseCount(entry.getValue())
-                                        .build()
-                        )
-                        .collect(Collectors.toList());
+
+        // 해당 월의 모든 날짜를 반환
+        List<CalendarResponseDTO.DailyRecord> dailyRecords = new ArrayList<>();
+        for (int day = 1; day <= totalTargetDays; day++) {
+            LocalDate date = yearMonth.atDay(day);
+            int exerciseCount = exerciseCountByDate.getOrDefault(date, 0);
+            dailyRecords.add(
+                    CalendarResponseDTO.DailyRecord.builder()
+                            .date(date)
+                            .exerciseCount(exerciseCount)
+                            .build()
+            );
+        }
 
         return CalendarResponseDTO.builder()
                 .year(year)
@@ -147,14 +127,23 @@ public class CalendarService {
         LocalDate today = LocalDate.now();
         LocalDate startDate = today.minusDays(6);
 
-        List<LocalDate> completedDates =
-                calendarRepository.findCompletedDatesByUserIdAndDateRange(
-                        userId,
-                        startDate,
-                        today
-                );
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = today.plusDays(1).atStartOfDay();
 
-        Set<LocalDate> completedDateSet = new HashSet<>(completedDates);
+        List<ExerciseSession> sessions =
+                exerciseSessionRepository
+                        .findAllByUserIdAndModeAndStatusAndCompletedAtGreaterThanEqualAndCompletedAtLessThanAndIsDeletedFalse(
+                                userId,
+                                ExerciseSessionMode.WORKOUT,
+                                ExerciseSessionStatus.COMPLETED,
+                                startDateTime,
+                                endDateTime
+                        );
+
+        Set<LocalDate> completedDateSet = sessions.stream()
+                .map(ExerciseSession::getCompletedAt)
+                .map(LocalDateTime::toLocalDate)
+                .collect(Collectors.toSet());
 
         List<RecentExerciseStatusDTO> result = new ArrayList<>();
 
