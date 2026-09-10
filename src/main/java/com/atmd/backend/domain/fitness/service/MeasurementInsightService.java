@@ -32,6 +32,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -55,10 +56,39 @@ public class MeasurementInsightService {
     private final AiClient aiClient;
     private final AiProperties aiProperties;
     private final ObjectMapper objectMapper;
+    private final TransactionTemplate transactionTemplate;
 
-    @Transactional
     public MeasurementInsightResponse generate(Long userId, String groupId) {
         log.info("[MEASUREMENT_INSIGHT] 추천 생성을 시작합니다. userId={}, measurementGroupId={}", userId, groupId);
+        GenerationReservation reservation = transactionTemplate.execute(status -> reserveGeneration(userId, groupId));
+        if (reservation == null) {
+            throw new GeneralException(FitnessErrorCode.INSIGHT_GENERATION_FAILED);
+        }
+        if (reservation.cachedResponse() != null) {
+            return reservation.cachedResponse();
+        }
+
+        User user = reservation.user();
+        List<ExerciseComparisonResponse> comparisons = reservation.comparisons();
+        try {
+            List<String> prescriptions = findSimilarPrescriptions(user, comparisons);
+            log.info("[MEASUREMENT_INSIGHT] pgvector 처방 검색을 완료했습니다. prescriptionCount={}", prescriptions.size());
+            List<AiInsightResponse> insights = generateInsights(user, comparisons, prescriptions);
+            log.info("[MEASUREMENT_INSIGHT] 맞춤 운동 추천 생성을 완료했습니다. recommendationCount={}", insights.size());
+
+            MeasurementInsightResponse response = transactionTemplate.execute(status ->
+                    completeGeneration(userId, groupId, comparisons, insights, prescriptions));
+            if (response == null) {
+                throw new GeneralException(FitnessErrorCode.INSIGHT_GENERATION_FAILED);
+            }
+            return response;
+        } catch (RuntimeException exception) {
+            transactionTemplate.executeWithoutResult(status -> removeGeneratingReservation(userId, groupId));
+            throw exception;
+        }
+    }
+
+    private GenerationReservation reserveGeneration(Long userId, String groupId) {
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new GeneralException(UserErrorCode.USER_NOT_FOUND));
         validateProfile(user);
@@ -66,31 +96,50 @@ public class MeasurementInsightService {
         Optional<MeasurementInsight> cached = measurementInsightRepository
                 .findByUserIdAndMeasurementGroupId(userId, groupId);
         if (cached.isPresent()) {
+            if (cached.get().isGenerating()) {
+                throw new GeneralException(FitnessErrorCode.INSIGHT_GENERATION_IN_PROGRESS);
+            }
             log.info("[MEASUREMENT_INSIGHT] 저장된 추천을 반환합니다. userId={}, measurementGroupId={}", userId, groupId);
-            return toResponse(cached.get());
+            return GenerationReservation.cached(toResponse(cached.get()));
         }
 
         Map<ExerciseType, ExerciseSession> sessions = completedSessions(userId, groupId);
         log.info("[MEASUREMENT_INSIGHT] 완료된 운동 4개를 확인했습니다. userId={}, measurementGroupId={}", userId, groupId);
         List<ExerciseComparisonResponse> comparisons = buildComparisons(user, sessions);
         log.info("[MEASUREMENT_INSIGHT] 연령·성별 기준 비교를 완료했습니다. comparisonCount={}", comparisons.size());
-        List<String> prescriptions = findSimilarPrescriptions(user, comparisons);
-        log.info("[MEASUREMENT_INSIGHT] pgvector 처방 검색을 완료했습니다. prescriptionCount={}", prescriptions.size());
-        List<AiInsightResponse> insights = generateInsights(user, comparisons, prescriptions);
-        log.info("[MEASUREMENT_INSIGHT] 맞춤 운동 추천 생성을 완료했습니다. recommendationCount={}", insights.size());
+        measurementInsightRepository.saveAndFlush(MeasurementInsight.startGenerating(user, groupId));
+        return GenerationReservation.pending(user, comparisons);
+    }
 
-        MeasurementInsight saved = measurementInsightRepository.save(MeasurementInsight.create(
-                user, groupId, writeJson(comparisons), writeJson(insights), writeJson(prescriptions)
-        ));
+    private MeasurementInsightResponse completeGeneration(
+            Long userId,
+            String groupId,
+            List<ExerciseComparisonResponse> comparisons,
+            List<AiInsightResponse> insights,
+            List<String> prescriptions
+    ) {
+        MeasurementInsight insight = measurementInsightRepository
+                .findByUserIdAndMeasurementGroupId(userId, groupId)
+                .orElseThrow(() -> new GeneralException(FitnessErrorCode.INSIGHT_NOT_FOUND));
+        insight.completeGeneration(writeJson(comparisons), writeJson(insights), writeJson(prescriptions));
         log.info("[MEASUREMENT_INSIGHT] 추천 결과를 저장했습니다. userId={}, measurementGroupId={}", userId, groupId);
-        return new MeasurementInsightResponse(groupId, insights, saved.getCreatedAt());
+        return new MeasurementInsightResponse(groupId, insights, insight.getCreatedAt());
+    }
+
+    private void removeGeneratingReservation(Long userId, String groupId) {
+        measurementInsightRepository.findByUserIdAndMeasurementGroupId(userId, groupId)
+                .filter(MeasurementInsight::isGenerating)
+                .ifPresent(measurementInsightRepository::delete);
     }
 
     @Transactional(readOnly = true)
     public MeasurementInsightResponse get(Long userId, String groupId) {
-        return measurementInsightRepository.findByUserIdAndMeasurementGroupId(userId, groupId)
-                .map(this::toResponse)
+        MeasurementInsight insight = measurementInsightRepository.findByUserIdAndMeasurementGroupId(userId, groupId)
                 .orElseThrow(() -> new GeneralException(FitnessErrorCode.INSIGHT_NOT_FOUND));
+        if (insight.isGenerating()) {
+            throw new GeneralException(FitnessErrorCode.INSIGHT_GENERATION_IN_PROGRESS);
+        }
+        return toResponse(insight);
     }
 
     private void validateProfile(User user) {
@@ -132,7 +181,8 @@ public class MeasurementInsightService {
             User user, Map<ExerciseType, ExerciseSession> sessions, ExerciseType type
     ) {
         FitpleExerciseStandard standard = fitpleExerciseStandardRepository
-                .findActiveStandard(type, user.getGender(), user.getAge())
+                .findFirstByExerciseTypeAndGenderAndMinimumAgeLessThanEqualAndMaximumAgeGreaterThanEqualAndIsActiveTrueOrderByIdDesc(
+                        type, user.getGender(), user.getAge(), user.getAge())
                 .orElseThrow(() -> new GeneralException(FitnessErrorCode.MEASUREMENT_PROFILE_REQUIRED));
         double measured = type == ExerciseType.PLANK
                 ? sessions.get(type).getValidDurationMs() / 1000.0
@@ -255,16 +305,10 @@ public class MeasurementInsightService {
             String content = response.getChoices().get(0).getMessage().getContent();
             List<AiInsightResponse> parsed = content.lines()
                     .map(String::trim)
-                    .filter(line -> line.chars().filter(character -> character == '|').count() >= 2)
+                    .map(this::parseRecommendation)
+                    .flatMap(Optional::stream)
                     .limit(3)
-                    .map(line -> {
-                        String[] parts = line.split("\\|", 3);
-                        String exerciseName = parts[1].trim();
-                        String description = parts[2].trim();
-                        if (exerciseName.length() > 30) exerciseName = exerciseName.substring(0, 30);
-                        if (description.length() > 80) description = description.substring(0, 80);
-                        return new AiInsightResponse(parts[0].trim(), exerciseName, description);
-                    }).toList();
+                    .toList();
             if (parsed.size() != 3) throw new IllegalStateException("Invalid insight response");
             return parsed;
         } catch (RuntimeException exception) {
@@ -272,6 +316,22 @@ public class MeasurementInsightService {
                     prescriptions.size(), exception);
             throw new GeneralException(FitnessErrorCode.INSIGHT_GENERATION_FAILED);
         }
+    }
+
+    private Optional<AiInsightResponse> parseRecommendation(String line) {
+        if (line.chars().filter(character -> character == '|').count() < 2) {
+            return Optional.empty();
+        }
+        String[] parts = line.split("\\|", 3);
+        String emoji = parts[0].trim();
+        String exerciseName = parts[1].trim();
+        String description = parts[2].trim();
+        if (emoji.isEmpty() || exerciseName.isEmpty() || description.isEmpty()) {
+            return Optional.empty();
+        }
+        if (exerciseName.length() > 30) exerciseName = exerciseName.substring(0, 30);
+        if (description.length() > 80) description = description.substring(0, 80);
+        return Optional.of(new AiInsightResponse(emoji, exerciseName, description));
     }
 
     private String comparisonSummary(User user, List<ExerciseComparisonResponse> comparisons) {
@@ -306,6 +366,23 @@ public class MeasurementInsightService {
 
     private double round(double value) {
         return Math.round(value * 10.0) / 10.0;
+    }
+
+    private record GenerationReservation(
+            User user,
+            List<ExerciseComparisonResponse> comparisons,
+            MeasurementInsightResponse cachedResponse
+    ) {
+        private static GenerationReservation cached(MeasurementInsightResponse response) {
+            return new GenerationReservation(null, List.of(), response);
+        }
+
+        private static GenerationReservation pending(
+                User user,
+                List<ExerciseComparisonResponse> comparisons
+        ) {
+            return new GenerationReservation(user, comparisons, null);
+        }
     }
 
 }

@@ -42,6 +42,9 @@ public class MeasurementInsight extends BaseTimeEntity {
     @Column(name = "reference_prescriptions_json", nullable = false, columnDefinition = "text")
     private String referencePrescriptionsJson;
 
+    @Column(name = "generation_status", nullable = false, length = 20)
+    private String generationStatus;
+
     private MeasurementInsight(User user, String groupId, String comparisonsJson,
                                String insightsJson, String referencePrescriptionsJson) {
         this.user = user;
@@ -49,10 +52,28 @@ public class MeasurementInsight extends BaseTimeEntity {
         this.comparisonsJson = comparisonsJson;
         this.insightsJson = insightsJson;
         this.referencePrescriptionsJson = referencePrescriptionsJson;
+        this.generationStatus = "COMPLETED";
     }
 
     public static MeasurementInsight create(User user, String groupId, String comparisonsJson,
                                             String insightsJson, String referencePrescriptionsJson) {
         return new MeasurementInsight(user, groupId, comparisonsJson, insightsJson, referencePrescriptionsJson);
+    }
+
+    public static MeasurementInsight startGenerating(User user, String groupId) {
+        MeasurementInsight insight = new MeasurementInsight(user, groupId, "[]", "[]", "[]");
+        insight.generationStatus = "GENERATING";
+        return insight;
+    }
+
+    public boolean isGenerating() {
+        return "GENERATING".equals(generationStatus);
+    }
+
+    public void completeGeneration(String comparisonsJson, String insightsJson, String prescriptionsJson) {
+        this.comparisonsJson = comparisonsJson;
+        this.insightsJson = insightsJson;
+        this.referencePrescriptionsJson = prescriptionsJson;
+        this.generationStatus = "COMPLETED";
     }
 }
