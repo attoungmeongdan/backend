@@ -17,6 +17,10 @@ public class WebSocketConfig implements WebSocketConfigurer {
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(exercisePoseWebSocketHandler, "/ws/v1/exercise-sessions/*")
                 .addInterceptors(handshakeInterceptor)
-                .setAllowedOrigins("http://localhost:3000", "http://localhost:5173");
+                .setAllowedOrigins(
+                        "http://localhost:3000",
+                        "http://localhost:5173",
+                        "https://fittle-app.vercel.app"
+                );
     }
 }
