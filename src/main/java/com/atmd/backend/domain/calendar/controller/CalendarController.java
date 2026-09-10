@@ -2,10 +2,20 @@ package com.atmd.backend.domain.calendar.controller;
 
 import com.atmd.backend.domain.calendar.dto.response.CalendarResponseDTO;
 import com.atmd.backend.domain.calendar.service.CalendarService;
+import com.atmd.backend.global.auth.util.SecurityUtil;
+import com.atmd.backend.global.common.response.ApiResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
+@Tag(name = "Calendar", description = "캘린더 API (월별 운동 기록 및 달성률 조회)")
 @RestController
 @RequestMapping("/api/v1/calendars")
 @RequiredArgsConstructor
@@ -13,15 +23,25 @@ public class CalendarController {
 
     private final CalendarService calendarService;
 
+    @Operation(
+            summary = "월별 캘린더 조회",
+            description = "로그인한 유저의 특정 연월(year, month)에 해당하는 운동 기록과 달성률을 반환합니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "캘린더 조회 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 연도 또는 월 입력"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증되지 않은 요청")
+    })
     @GetMapping
-    public ResponseEntity<CalendarResponseDTO> getMonthlyCalendar(
+    public ResponseEntity<ApiResponse<CalendarResponseDTO>> getMonthlyCalendar(
+            @Parameter(description = "조회할 연도 (예: 2026)", example = "2026")
             @RequestParam int year,
+
+            @Parameter(description = "조회할 월 (1~12)", example = "9")
             @RequestParam int month) {
 
-        // TODO: 추후 Spring Security 등에서 로그인된 사용자의 ID를 가져오도록 수정
-        Long currentUserId = 1L;
-
+        Long currentUserId = SecurityUtil.getCurrentUserId();
         CalendarResponseDTO response = calendarService.getMonthlyCalendar(currentUserId, year, month);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 }

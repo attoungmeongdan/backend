@@ -1,19 +1,18 @@
 package com.atmd.backend.domain.calendar.entity;
 
+import com.atmd.backend.domain.user.entity.User;
+import com.atmd.backend.global.common.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(
-        name = "exercise_record",
+        name = "calendar",
         uniqueConstraints = {
                 @UniqueConstraint(
                         name = "uk_user_date",
@@ -23,16 +22,16 @@ import java.time.LocalDateTime;
 )
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@EntityListeners(AuditingEntityListener.class)
-public class ExerciseRecord {
+public class Calendar extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "record_id")
+    @Column(name = "calendar_id")
     private Long id;
 
-    @Column(name = "user_id", nullable = false)
-    private Long userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     @Column(name = "exercise_date", nullable = false)
     private LocalDate exerciseDate;
@@ -40,13 +39,9 @@ public class ExerciseRecord {
     @Column(name = "is_completed", nullable = false)
     private Boolean isCompleted;
 
-    @CreatedDate
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
-
     @Builder
-    public ExerciseRecord(Long userId, LocalDate exerciseDate, Boolean isCompleted) {
-        this.userId = userId;
+    public Calendar(User user, LocalDate exerciseDate, Boolean isCompleted) {
+        this.user = user;
         this.exerciseDate = exerciseDate;
         this.isCompleted = isCompleted != null ? isCompleted : true;
     }

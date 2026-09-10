@@ -1,9 +1,10 @@
 package com.atmd.backend.domain.calendar.service;
 
 import com.atmd.backend.domain.calendar.dto.response.CalendarResponseDTO;
-import com.atmd.backend.domain.calendar.dto.response.CalendarResponseDTO;
-import com.atmd.backend.domain.calendar.entity.ExerciseRecord;
-import com.atmd.backend.domain.calendar.repository.ExerciseRecordRepository;
+import com.atmd.backend.domain.calendar.entity.Calendar;
+import com.atmd.backend.domain.calendar.exception.CalendarErrorCode;
+import com.atmd.backend.domain.calendar.repository.CalendarRepository;
+import com.atmd.backend.global.common.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,28 +19,34 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class CalendarService {
 
-    private final ExerciseRecordRepository exerciseRecordRepository;
+    private final CalendarRepository calendarRepository;
 
     public CalendarResponseDTO getMonthlyCalendar(Long userId, int year, int month) {
-        // 1. 해당 연월의 시작일과 마지막 일자 계산
+        if (month < 1 || month > 12 || year < 1900) {
+            throw new GeneralException(CalendarErrorCode.INVALID_YEAR_MONTH);
+        }
+
         YearMonth yearMonth = YearMonth.of(year, month);
         LocalDate startDate = yearMonth.atDay(1);
         LocalDate endDate = yearMonth.atEndOfMonth();
 
-        // 2. DB에서 해당 월의 기록 조회
-        List<ExerciseRecord> records = exerciseRecordRepository
-                .findByUserIdAndExerciseDateBetween(userId, startDate, endDate);
+        List<Calendar> records = calendarRepository
+                .findByUserIdAndExerciseDateBetweenAndIsDeletedFalse(userId, startDate, endDate);
 
-        // 3. 완료한 일수 계산
         int completedDays = (int) records.stream()
-                .filter(ExerciseRecord::getIsCompleted)
+                .filter(Calendar::getIsCompleted)
                 .count();
 
-        // 4. 당월 총 일수 (목표 일수) 및 달성률 계산
-        int totalTargetDays = yearMonth.lengthOfMonth();
-        int achievementRate = (int) Math.round(((double) completedDays / totalTargetDays) * 100);
+        LocalDate today = LocalDate.now();
+        int totalTargetDays;
+        if (year == today.getYear() && month == today.getMonthValue()) {
+            totalTargetDays = today.getDayOfMonth();
+        } else {
+            totalTargetDays = yearMonth.lengthOfMonth();
+        }
 
-        // 5. 일별 기록 DTO 변환
+        int achievementRate = totalTargetDays == 0 ? 0 : (int) Math.round(((double) completedDays / totalTargetDays) * 100);
+
         List<CalendarResponseDTO.DailyRecord> dailyRecords = records.stream()
                 .map(record -> CalendarResponseDTO.DailyRecord.builder()
                         .date(record.getExerciseDate())
@@ -47,7 +54,6 @@ public class CalendarService {
                         .build())
                 .collect(Collectors.toList());
 
-        // 6. 최종 응답 객체 반환
         return CalendarResponseDTO.builder()
                 .year(year)
                 .month(month)
