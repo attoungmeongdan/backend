@@ -95,6 +95,7 @@ signup-token:
 springdoc:
   swagger-ui:
     path: /swagger-ui/index.html
+    with-credentials: true
   api-docs:
     path: /v3/api-docs
 

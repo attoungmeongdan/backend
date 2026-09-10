@@ -24,13 +24,17 @@ public class AddressService {
         Double lat = null;
         Double lng = null;
 
-        if (roadNameAddress != null && !roadNameAddress.isBlank()) {
+        String query = (roadNameAddress != null && !roadNameAddress.isBlank())
+                ? roadNameAddress
+                : lotNumberAddress;
+
+        if (query != null && !query.isBlank()) {
             try {
-                KakaoLocalAddressResponseDTO response = kakaoLocalClient.searchAddress(roadNameAddress);
+                KakaoLocalAddressResponseDTO response = kakaoLocalClient.searchAddress(query);
                 lat = response.getLat();
                 lng = response.getLng();
             } catch (Exception e) {
-                log.warn("카카오 주소 좌표 변환 실패: address={}, error={}", roadNameAddress, e.getMessage());
+                log.warn("카카오 주소 좌표 변환 실패: address={}, error={}", query, e.getMessage());
             }
         }
 
