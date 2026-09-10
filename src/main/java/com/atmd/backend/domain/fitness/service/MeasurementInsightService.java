@@ -4,13 +4,11 @@ import com.atmd.backend.domain.fitness.dto.response.AiInsightResponse;
 import com.atmd.backend.domain.fitness.dto.response.ExerciseComparisonResponse;
 import com.atmd.backend.domain.fitness.dto.response.MeasurementInsightResponse;
 import com.atmd.backend.domain.fitness.entity.ExerciseSession;
-import com.atmd.backend.domain.fitness.entity.FitpleExerciseStandard;
 import com.atmd.backend.domain.fitness.entity.MeasurementInsight;
 import com.atmd.backend.domain.fitness.enums.ExerciseSessionStatus;
 import com.atmd.backend.domain.fitness.enums.ExerciseType;
 import com.atmd.backend.domain.fitness.exception.FitnessErrorCode;
 import com.atmd.backend.domain.fitness.repository.ExerciseSessionRepository;
-import com.atmd.backend.domain.fitness.repository.FitpleExerciseStandardRepository;
 import com.atmd.backend.domain.fitness.repository.MeasurementInsightRepository;
 import com.atmd.backend.domain.user.entity.User;
 import com.atmd.backend.domain.user.entity.enums.Gender;
@@ -50,7 +48,7 @@ public class MeasurementInsightService {
 
     private final UserRepository userRepository;
     private final ExerciseSessionRepository exerciseSessionRepository;
-    private final FitpleExerciseStandardRepository fitpleExerciseStandardRepository;
+    private final ExerciseStandardService exerciseStandardService;
     private final MeasurementInsightRepository measurementInsightRepository;
     private final JdbcTemplate jdbcTemplate;
     private final AiClient aiClient;
@@ -180,14 +178,10 @@ public class MeasurementInsightService {
     private ExerciseComparisonResponse fitpleComparison(
             User user, Map<ExerciseType, ExerciseSession> sessions, ExerciseType type
     ) {
-        FitpleExerciseStandard standard = fitpleExerciseStandardRepository
-                .findFirstByExerciseTypeAndGenderAndMinimumAgeLessThanEqualAndMaximumAgeGreaterThanEqualAndIsActiveTrueOrderByIdDesc(
-                        type, user.getGender(), user.getAge(), user.getAge())
-                .orElseThrow(() -> new GeneralException(FitnessErrorCode.MEASUREMENT_PROFILE_REQUIRED));
         double measured = type == ExerciseType.PLANK
                 ? sessions.get(type).getValidDurationMs() / 1000.0
                 : sessions.get(type).getValidCount();
-        return comparison(type, measured, standard.getAverageValue().doubleValue(),
+        return comparison(type, measured, exerciseStandardService.getAverage(type, user.getGender(), user.getAge()),
                 type == ExerciseType.PLANK ? "SECOND" : "COUNT", "FITPLE");
     }
 
@@ -199,27 +193,11 @@ public class MeasurementInsightService {
     }
 
     private double chairStandStandard(User user) {
-        int age = user.getAge();
-        boolean male = user.getGender() == Gender.MALE;
-        if (age >= 80) return male ? 14 : 13;
-        if (age >= 70) return male ? 16 : 15;
-        if (age >= 60) return 19;
-        if (age >= 50) return male ? 23 : 22;
-        if (age >= 40) return male ? 26 : 25;
-        if (age >= 30) return male ? 28 : 27;
-        if (age >= 20) return male ? 26 : 27;
-        return male ? 26 : 24;
+        return exerciseStandardService.getAverage(ExerciseType.CHAIR_STAND, user.getGender(), user.getAge());
     }
 
     private double sitUpStandard(User user) {
-        int age = user.getAge();
-        boolean male = user.getGender() == Gender.MALE;
-        if (age >= 60) return male ? 20 : 8;
-        if (age >= 50) return male ? 26 : 17;
-        if (age >= 40) return male ? 31 : 22;
-        if (age >= 30) return male ? 36 : 27;
-        if (age >= 20) return male ? 40 : 35;
-        return male ? 40 : 34;
+        return exerciseStandardService.getAverage(ExerciseType.SIT_UP, user.getGender(), user.getAge());
     }
 
     private List<String> findSimilarPrescriptions(

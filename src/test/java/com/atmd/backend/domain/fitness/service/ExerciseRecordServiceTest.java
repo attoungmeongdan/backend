@@ -1,6 +1,7 @@
 package com.atmd.backend.domain.fitness.service;
 
 import com.atmd.backend.domain.fitness.dto.response.MeasurementHistoryResponse;
+import com.atmd.backend.domain.fitness.dto.response.MeasurementResultsResponse;
 import com.atmd.backend.domain.fitness.entity.ExerciseSession;
 import com.atmd.backend.domain.fitness.enums.ExerciseSessionMode;
 import com.atmd.backend.domain.fitness.enums.ExerciseSessionStatus;
@@ -54,6 +55,30 @@ class ExerciseRecordServiceTest {
         assertThat(response.previousMeasurements()).isEmpty();
     }
 
+    @Test
+    void returnsOnlyMeasuredValuesForCompletedGroup() {
+        ExerciseSessionRepository repository = mock(ExerciseSessionRepository.class);
+        ExerciseRecordService service = new ExerciseRecordService(repository);
+        String groupId = "completed-group";
+        LocalDateTime completedAt = LocalDateTime.of(2026, 9, 11, 12, 0);
+        List<ExerciseSession> sessions = List.of(
+                completedSession(groupId, ExerciseType.CHAIR_STAND, 24, 0, completedAt),
+                completedSession(groupId, ExerciseType.SIT_UP, 31, 0, completedAt),
+                completedSession(groupId, ExerciseType.PUSH_UP, 18, 0, completedAt),
+                completedSession(groupId, ExerciseType.PLANK, 0, 48_700, completedAt)
+        );
+        when(repository.findAllByUserIdAndMeasurementGroupIdAndIsDeletedFalse(1L, groupId))
+                .thenReturn(sessions);
+
+        MeasurementResultsResponse response = service.getMeasurementResults(1L, groupId);
+
+        assertThat(response.measurementGroupId()).isEqualTo(groupId);
+        assertThat(response.exercises()).hasSize(4);
+        assertThat(response.exercises().get(0).value()).isEqualTo(24.0);
+        assertThat(response.exercises().get(3).value()).isEqualTo(48.7);
+        assertThat(response.exercises().get(3).unit()).isEqualTo("SECOND");
+    }
+
     private ExerciseSession session(
             String groupId,
             ExerciseType type,
@@ -67,6 +92,19 @@ class ExerciseRecordServiceTest {
         when(session.getValidCount()).thenReturn(count);
         when(session.getValidDurationMs()).thenReturn(durationMs);
         when(session.getCompletedAt()).thenReturn(completedAt);
+        return session;
+    }
+
+    private ExerciseSession completedSession(
+            String groupId,
+            ExerciseType type,
+            int count,
+            long durationMs,
+            LocalDateTime completedAt
+    ) {
+        ExerciseSession session = session(groupId, type, count, durationMs, completedAt);
+        when(session.getMode()).thenReturn(ExerciseSessionMode.MEASUREMENT);
+        when(session.getStatus()).thenReturn(ExerciseSessionStatus.COMPLETED);
         return session;
     }
 }
