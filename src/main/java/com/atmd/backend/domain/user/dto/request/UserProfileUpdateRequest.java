@@ -1,8 +1,9 @@
 package com.atmd.backend.domain.user.dto.request;
 
 import com.atmd.backend.domain.user.entity.enums.Gender;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -17,8 +18,10 @@ public class UserProfileUpdateRequest {
     @Min(1)
     private Integer age;
     private Gender gender;
-    @Positive
+    @DecimalMin("0.1")
+    @DecimalMax("250.0")
     private Double height;
-    @Positive
+    @DecimalMin("0.1")
+    @DecimalMax("300.0")
     private Double weight;
 }
