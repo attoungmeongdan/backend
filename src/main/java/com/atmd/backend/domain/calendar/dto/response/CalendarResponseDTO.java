@@ -1,5 +1,6 @@
 package com.atmd.backend.domain.calendar.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -41,7 +42,7 @@ public class CalendarResponseDTO {
         @Schema(description = "운동 날짜", example = "2026-09-01")
         private LocalDate date;
 
-        @Schema(description = "운동 완료 여부", example = "true")
-        private boolean isCompleted;
+        @Schema(description = "운동 완료 종류 수", example = "3")
+        private int exerciseCount;
     }
 }
