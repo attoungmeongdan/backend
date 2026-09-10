@@ -12,6 +12,8 @@ services:
       DB_PORT: 5432
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY is required}
+      OPENAI_EMBEDDING_INITIALIZE_ON_STARTUP: ${OPENAI_EMBEDDING_INITIALIZE_ON_STARTUP:-true}
       TZ: Asia/Seoul
     depends_on:
       postgres:
@@ -27,7 +29,7 @@ services:
     restart: unless-stopped
 
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: atmd-postgres
     env_file:
       - .env.prod
