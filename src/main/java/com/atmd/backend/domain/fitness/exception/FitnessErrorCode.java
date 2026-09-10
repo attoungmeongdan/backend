@@ -22,6 +22,10 @@ public enum FitnessErrorCode implements BaseErrorCode {
     MEASUREMENT_NOT_STARTED(HttpStatus.NOT_FOUND, "FITNESS_404_3", "오늘 시작한 체력측정이 없습니다."),
     MEASUREMENT_ALREADY_COMPLETED(HttpStatus.CONFLICT, "FITNESS_409_5", "오늘의 체력측정이 이미 완료되었습니다."),
     INVALID_MEASUREMENT_ORDER(HttpStatus.CONFLICT, "FITNESS_409_7", "체력측정 운동 순서가 올바르지 않습니다."),
+    MEASUREMENT_PROFILE_REQUIRED(HttpStatus.BAD_REQUEST, "FITNESS_400_4", "인사이트 생성을 위해 나이와 성별이 필요합니다."),
+    MEASUREMENT_INCOMPLETE(HttpStatus.CONFLICT, "FITNESS_409_8", "네 가지 운동 측정을 모두 완료해야 합니다."),
+    INSIGHT_NOT_FOUND(HttpStatus.NOT_FOUND, "FITNESS_404_4", "생성된 측정 인사이트를 찾을 수 없습니다."),
+    INSIGHT_GENERATION_FAILED(HttpStatus.BAD_GATEWAY, "FITNESS_502_1", "AI 인사이트 생성에 실패했습니다."),
     MEASUREMENT_MANUAL_COMPLETE_NOT_ALLOWED(
             HttpStatus.CONFLICT,
             "FITNESS_409_6",
