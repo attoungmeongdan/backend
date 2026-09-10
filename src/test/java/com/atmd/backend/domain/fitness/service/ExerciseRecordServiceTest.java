@@ -20,7 +20,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.mockito.ArgumentCaptor;
 
 class ExerciseRecordServiceTest {
 
@@ -49,10 +51,19 @@ class ExerciseRecordServiceTest {
 
         MeasurementHistoryResponse response = service.getMeasurementHistory(1L);
 
-        assertThat(response.today()).isNotNull();
-        assertThat(response.today().totalScore()).isEqualTo(121.7);
-        assertThat(response.today().exercises().get(ExerciseType.PLANK).value()).isEqualTo(48.7);
-        assertThat(response.previousMeasurements()).isEmpty();
+        assertThat(response.chairStand().today().value()).isEqualTo(24.0);
+        assertThat(response.sitUp().today().value()).isEqualTo(31.0);
+        assertThat(response.pushUp().today().value()).isEqualTo(18.0);
+        assertThat(response.plank().today().value()).isEqualTo(48.7);
+        assertThat(response.plank().today().unit()).isEqualTo("SECOND");
+        assertThat(response.chairStand().previousMeasurements()).isEmpty();
+
+        ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
+        verify(repository).findRecentCompletedMeasurementGroupIds(
+                eq(1L), eq(ExerciseSessionMode.MEASUREMENT),
+                eq(ExerciseSessionStatus.COMPLETED), pageable.capture()
+        );
+        assertThat(pageable.getValue().getPageSize()).isEqualTo(5);
     }
 
     @Test
