@@ -10,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class ExerciseStandardService {
@@ -24,6 +26,11 @@ public class ExerciseStandardService {
             case SIT_UP -> sitUpAverage(age, male);
             case PUSH_UP, PLANK -> fitpleAverage(exerciseType, gender, age);
         };
+    }
+
+    @Transactional(readOnly = true)
+    public Snapshot loadSnapshot() {
+        return new Snapshot(fitpleExerciseStandardRepository.findAllByIsActiveTrueOrderByIdDesc());
     }
 
     private double fitpleAverage(ExerciseType exerciseType, Gender gender, int age) {
@@ -53,5 +60,29 @@ public class ExerciseStandardService {
         if (age >= 30) return male ? 36 : 27;
         if (age >= 20) return male ? 40 : 35;
         return male ? 40 : 34;
+    }
+
+    public final class Snapshot {
+        private final List<FitpleExerciseStandard> activeStandards;
+
+        private Snapshot(List<FitpleExerciseStandard> activeStandards) {
+            this.activeStandards = List.copyOf(activeStandards);
+        }
+
+        public double getAverage(ExerciseType exerciseType, Gender gender, int age) {
+            boolean male = gender == Gender.MALE;
+            return switch (exerciseType) {
+                case CHAIR_STAND -> chairStandAverage(age, male);
+                case SIT_UP -> sitUpAverage(age, male);
+                case PUSH_UP, PLANK -> activeStandards.stream()
+                        .filter(standard -> standard.getExerciseType() == exerciseType)
+                        .filter(standard -> standard.getGender() == gender)
+                        .filter(standard -> standard.supportsAge(age))
+                        .findFirst()
+                        .map(FitpleExerciseStandard::getAverageValue)
+                        .map(Number::doubleValue)
+                        .orElseThrow(() -> new GeneralException(FitnessErrorCode.EXERCISE_STANDARD_NOT_FOUND));
+            };
+        }
     }
 }

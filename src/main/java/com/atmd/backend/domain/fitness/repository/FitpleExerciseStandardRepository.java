@@ -4,6 +4,7 @@ import com.atmd.backend.domain.fitness.entity.FitpleExerciseStandard;
 import com.atmd.backend.domain.fitness.enums.ExerciseType;
 import com.atmd.backend.domain.user.entity.enums.Gender;
 import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.List;
 import java.util.Optional;
 
 public interface FitpleExerciseStandardRepository
@@ -15,4 +16,6 @@ public interface FitpleExerciseStandardRepository
             int maximumMinimumAge,
             int minimumMaximumAge
     );
+
+    List<FitpleExerciseStandard> findAllByIsActiveTrueOrderByIdDesc();
 }

@@ -11,6 +11,7 @@ import com.atmd.backend.domain.fitness.enums.ExerciseSessionMode;
 import com.atmd.backend.domain.fitness.enums.ExerciseSessionStatus;
 import com.atmd.backend.domain.fitness.enums.ExerciseType;
 import com.atmd.backend.domain.fitness.exception.FitnessErrorCode;
+import com.atmd.backend.domain.fitness.repository.CohortMeasurementProjection;
 import com.atmd.backend.domain.fitness.repository.ExerciseSessionRepository;
 import com.atmd.backend.domain.user.entity.User;
 import com.atmd.backend.domain.user.entity.enums.Gender;
@@ -21,11 +22,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -58,11 +57,13 @@ public class MeasurementAnalysisService {
                 .orElseThrow(() -> new GeneralException(UserErrorCode.USER_NOT_FOUND));
         validateProfile(user);
         Map<ExerciseType, Double> measuredValues = completedValues(userId, measurementGroupId);
+        ExerciseStandardService.Snapshot standards = exerciseStandardService.loadSnapshot();
 
-        List<ExercisePeerComparisonResponse> comparisons = buildPeerComparisons(user, measuredValues);
-        double overallScore = calculateOverallScore(user.getGender(), user.getAge(), measuredValues);
-        MeasurementPercentileResponse percentile = calculatePercentile(user, overallScore);
-        List<PerformanceGroupComparisonResponse> performanceComparisons = buildPerformanceComparisons(measuredValues);
+        List<ExercisePeerComparisonResponse> comparisons = buildPeerComparisons(user, measuredValues, standards);
+        double overallScore = calculateOverallScore(user.getGender(), user.getAge(), measuredValues, standards);
+        MeasurementPercentileResponse percentile = calculatePercentile(user, overallScore, standards);
+        List<PerformanceGroupComparisonResponse> performanceComparisons = buildPerformanceComparisons(
+                measuredValues, standards);
         PerformanceGroupComparisonResponse closestGroup = performanceComparisons.stream()
                 .max(Comparator.comparingDouble(PerformanceGroupComparisonResponse::similarityRate))
                 .orElseThrow();
@@ -109,14 +110,16 @@ public class MeasurementAnalysisService {
     }
 
     private List<ExercisePeerComparisonResponse> buildPeerComparisons(
-            User user, Map<ExerciseType, Double> measuredValues
+            User user,
+            Map<ExerciseType, Double> measuredValues,
+            ExerciseStandardService.Snapshot standards
     ) {
         List<ExercisePeerComparisonResponse> result = new ArrayList<>();
         for (ExerciseType type : ExerciseType.values()) {
             double measured = measuredValues.get(type);
-            double average = exerciseStandardService.getAverage(type, user.getGender(), user.getAge());
-            double achievementRate = measured / average * 100.0;
-            ComparisonLevel level = comparisonLevel(achievementRate);
+            double average = standards.getAverage(type, user.getGender(), user.getAge());
+            double rate = achievementRate(measured, average);
+            ComparisonLevel level = comparisonLevel(rate);
             result.add(new ExercisePeerComparisonResponse(
                     type,
                     round(measured),
@@ -129,7 +132,9 @@ public class MeasurementAnalysisService {
         return List.copyOf(result);
     }
 
-    private MeasurementPercentileResponse calculatePercentile(User user, double targetScore) {
+    private MeasurementPercentileResponse calculatePercentile(
+            User user, double targetScore, ExerciseStandardService.Snapshot standards
+    ) {
         int age = user.getAge();
         int decadeMinimum = age >= 70 ? 70 : age / 10 * 10;
         int decadeMaximum = age >= 70 ? 150 : decadeMinimum + 9;
@@ -138,10 +143,18 @@ public class MeasurementAnalysisService {
                 decadeMaximum,
                 age >= 70 ? "70대 이상" : decadeMinimum + "대"
         );
-        List<Double> scores = cohortScores(user.getId(), user.getGender(), range);
-        scores.add(targetScore);
-        if (scores.size() >= MINIMUM_PERCENTILE_SAMPLE_SIZE) {
-            return availablePercentile(scores, targetScore, user.getGender(), range.label());
+        List<Double> comparisonScores = cohortScores(user.getId(), user.getGender(), range, standards);
+        int comparisonSampleSize = comparisonScores.size();
+        if (comparisonSampleSize >= MINIMUM_PERCENTILE_SAMPLE_SIZE) {
+            List<Double> percentileScores = new ArrayList<>(comparisonScores);
+            percentileScores.add(targetScore);
+            return availablePercentile(
+                    percentileScores,
+                    comparisonSampleSize,
+                    targetScore,
+                    user.getGender(),
+                    range.label()
+            );
         }
         return new MeasurementPercentileResponse(
                 false,
@@ -149,7 +162,7 @@ public class MeasurementAnalysisService {
                 null,
                 user.getGender(),
                 range.label(),
-                scores.size(),
+                comparisonSampleSize,
                 "아직 동년배 측정 기록이 조금 부족해요",
                 targetScore,
                 null,
@@ -158,51 +171,38 @@ public class MeasurementAnalysisService {
         );
     }
 
-    private List<Double> cohortScores(Long targetUserId, Gender gender, CohortRange range) {
-        List<ExerciseSession> sessions = exerciseSessionRepository.findCompletedMeasurementsForCohort(
-                ExerciseSessionMode.MEASUREMENT,
-                ExerciseSessionStatus.COMPLETED,
-                gender,
+    private List<Double> cohortScores(
+            Long targetUserId,
+            Gender gender,
+            CohortRange range,
+            ExerciseStandardService.Snapshot standards
+    ) {
+        List<CohortMeasurementProjection> measurements =
+                exerciseSessionRepository.findLatestCompletedMeasurementsForCohort(
+                gender.name(),
                 range.minimumAge(),
-                range.maximumAge()
+                range.maximumAge(),
+                targetUserId
         );
 
-        Map<Long, Map<String, List<ExerciseSession>>> byUserAndGroup = new LinkedHashMap<>();
-        for (ExerciseSession session : sessions) {
-            if (session.getUser().getId().equals(targetUserId)) continue;
-            byUserAndGroup
-                    .computeIfAbsent(session.getUser().getId(), ignored -> new LinkedHashMap<>())
-                    .computeIfAbsent(session.getMeasurementGroupId(), ignored -> new ArrayList<>())
-                    .add(session);
-        }
-
         List<Double> scores = new ArrayList<>();
-        byUserAndGroup.values().forEach(groups -> groups.values().stream()
-                .filter(group -> group.stream().map(ExerciseSession::getExerciseType).distinct().count()
-                        == ExerciseType.values().length)
-                .max(Comparator.comparing(this::latestCompletion))
-                .ifPresent(group -> {
-                    User cohortUser = group.get(0).getUser();
-                    Map<ExerciseType, ExerciseSession> sessionsByType = new EnumMap<>(ExerciseType.class);
-                    group.forEach(session -> sessionsByType.put(session.getExerciseType(), session));
-                    scores.add(calculateOverallScore(
-                            cohortUser.getGender(),
-                            cohortUser.getAge(),
-                            sessionValues(sessionsByType)
-                    ));
-                }));
+        for (CohortMeasurementProjection measurement : measurements) {
+            Map<ExerciseType, Double> values = new EnumMap<>(ExerciseType.class);
+            values.put(ExerciseType.CHAIR_STAND, measurement.getChairStandValue());
+            values.put(ExerciseType.SIT_UP, measurement.getSitUpValue());
+            values.put(ExerciseType.PUSH_UP, measurement.getPushUpValue());
+            values.put(ExerciseType.PLANK, measurement.getPlankValue());
+            scores.add(calculateOverallScore(gender, measurement.getMeasurementAge(), values, standards));
+        }
         return scores;
     }
 
-    private LocalDateTime latestCompletion(List<ExerciseSession> sessions) {
-        return sessions.stream()
-                .map(ExerciseSession::getCompletedAt)
-                .max(LocalDateTime::compareTo)
-                .orElse(LocalDateTime.MIN);
-    }
-
     private MeasurementPercentileResponse availablePercentile(
-            List<Double> scores, double targetScore, Gender gender, String ageGroup
+            List<Double> scores,
+            int comparisonSampleSize,
+            double targetScore,
+            Gender gender,
+            String ageGroup
     ) {
         long lower = scores.stream().filter(score -> score < targetScore).count();
         long equal = scores.stream().filter(score -> Double.compare(score, targetScore) == 0).count();
@@ -220,7 +220,7 @@ public class MeasurementAnalysisService {
                 topPercent,
                 gender,
                 ageGroup,
-                scores.size(),
+                comparisonSampleSize,
                 "동년배 중 상위 " + topPercent + "%예요",
                 targetScore,
                 userBucketIndex,
@@ -250,7 +250,8 @@ public class MeasurementAnalysisService {
     }
 
     private List<PerformanceGroupComparisonResponse> buildPerformanceComparisons(
-            Map<ExerciseType, Double> measuredValues
+            Map<ExerciseType, Double> measuredValues,
+            ExerciseStandardService.Snapshot standards
     ) {
         List<PerformanceGroupComparisonResponse> result = new ArrayList<>();
         for (AgeStandard standard : AGE_STANDARDS) {
@@ -260,7 +261,8 @@ public class MeasurementAnalysisService {
                         gender,
                         standard.label(),
                         label,
-                        round(ageGroupSimilarity(gender, standard.representativeAge(), measuredValues))
+                        round(ageGroupSimilarity(
+                                gender, standard.representativeAge(), measuredValues, standards))
                 ));
             }
         }
@@ -268,23 +270,29 @@ public class MeasurementAnalysisService {
     }
 
     private double ageGroupSimilarity(
-            Gender gender, int representativeAge, Map<ExerciseType, Double> measuredValues
+            Gender gender,
+            int representativeAge,
+            Map<ExerciseType, Double> measuredValues,
+            ExerciseStandardService.Snapshot standards
     ) {
         double averageDifference = 0;
         for (ExerciseType type : ExerciseType.values()) {
-            double standard = exerciseStandardService.getAverage(type, gender, representativeAge);
-            averageDifference += Math.abs(measuredValues.get(type) / standard * 100.0 - 100.0);
+            double standard = standards.getAverage(type, gender, representativeAge);
+            averageDifference += Math.abs(achievementRate(measuredValues.get(type), standard) - 100.0);
         }
         return Math.max(0, 100.0 - averageDifference / ExerciseType.values().length);
     }
 
     private double calculateOverallScore(
-            Gender gender, int age, Map<ExerciseType, Double> measuredValues
+            Gender gender,
+            int age,
+            Map<ExerciseType, Double> measuredValues,
+            ExerciseStandardService.Snapshot standards
     ) {
         double total = 0;
         for (ExerciseType type : ExerciseType.values()) {
-            double average = exerciseStandardService.getAverage(type, gender, age);
-            total += Math.min(measuredValues.get(type) / average * 100.0, MAX_EXERCISE_SCORE);
+            double average = standards.getAverage(type, gender, age);
+            total += Math.min(achievementRate(measuredValues.get(type), average), MAX_EXERCISE_SCORE);
         }
         return round(total / ExerciseType.values().length);
     }
@@ -304,6 +312,10 @@ public class MeasurementAnalysisService {
         if (achievementRate < 90.0) return ComparisonLevel.LOW;
         if (achievementRate <= 110.0) return ComparisonLevel.SIMILAR;
         return ComparisonLevel.HIGH;
+    }
+
+    private double achievementRate(double measured, double average) {
+        return average <= 0 ? 0 : measured / average * 100.0;
     }
 
     private String genderLabel(Gender gender) {

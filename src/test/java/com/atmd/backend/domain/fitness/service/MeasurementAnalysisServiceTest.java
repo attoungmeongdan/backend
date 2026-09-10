@@ -16,7 +16,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -29,6 +28,7 @@ class MeasurementAnalysisServiceTest {
         UserRepository userRepository = mock(UserRepository.class);
         ExerciseSessionRepository sessionRepository = mock(ExerciseSessionRepository.class);
         ExerciseStandardService standardService = mock(ExerciseStandardService.class);
+        ExerciseStandardService.Snapshot standards = mock(ExerciseStandardService.Snapshot.class);
         MeasurementAnalysisService service = new MeasurementAnalysisService(
                 userRepository, sessionRepository, standardService
         );
@@ -37,7 +37,9 @@ class MeasurementAnalysisServiceTest {
         when(user.getAge()).thenReturn(35);
         when(user.getGender()).thenReturn(Gender.FEMALE);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(standardService.getAverage(any(ExerciseType.class), eq(Gender.FEMALE), anyInt()))
+        when(standardService.loadSnapshot()).thenReturn(standards);
+        when(standards.getAverage(org.mockito.ArgumentMatchers.any(ExerciseType.class),
+                org.mockito.ArgumentMatchers.any(Gender.class), anyInt()))
                 .thenReturn(10.0);
 
         String groupId = "analysis-group";
@@ -50,12 +52,11 @@ class MeasurementAnalysisServiceTest {
         );
         when(sessionRepository.findAllByUserIdAndMeasurementGroupIdAndIsDeletedFalse(1L, groupId))
                 .thenReturn(completedSessions);
-        when(sessionRepository.findCompletedMeasurementsForCohort(
-                eq(ExerciseSessionMode.MEASUREMENT),
-                eq(ExerciseSessionStatus.COMPLETED),
-                eq(Gender.FEMALE),
+        when(sessionRepository.findLatestCompletedMeasurementsForCohort(
+                eq("FEMALE"),
                 anyInt(),
-                anyInt()
+                anyInt(),
+                eq(1L)
         )).thenReturn(List.of());
 
         MeasurementAnalysisResponse response = service.getAnalysis(1L, groupId);
@@ -65,7 +66,7 @@ class MeasurementAnalysisServiceTest {
                 .containsExactly("LOW", "SIMILAR", "HIGH", "SIMILAR");
         assertThat(response.overallScore()).isEqualTo(100.0);
         assertThat(response.percentile().available()).isFalse();
-        assertThat(response.percentile().sampleSize()).isEqualTo(1);
+        assertThat(response.percentile().sampleSize()).isZero();
         assertThat(response.percentile().comparisonGender()).isEqualTo(Gender.FEMALE);
         assertThat(response.percentile().comparisonAgeGroup()).isEqualTo("30대");
         assertThat(response.percentile().userScore()).isEqualTo(100.0);

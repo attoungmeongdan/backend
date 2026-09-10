@@ -4,7 +4,6 @@ import com.atmd.backend.domain.fitness.entity.ExerciseSession;
 import com.atmd.backend.domain.fitness.enums.ExerciseSessionStatus;
 import com.atmd.backend.domain.fitness.enums.ExerciseSessionMode;
 import com.atmd.backend.domain.fitness.enums.ExerciseType;
-import com.atmd.backend.domain.user.entity.enums.Gender;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.domain.Pageable;
@@ -37,24 +36,49 @@ public interface ExerciseSessionRepository extends JpaRepository<ExerciseSession
 
     List<ExerciseSession> findAllByUserIdAndMeasurementGroupIdAndIsDeletedFalse(Long userId, String groupId);
 
-    @Query("""
-            select e
-            from ExerciseSession e
-            join fetch e.user u
-            where e.mode = :mode
-              and e.status = :status
-              and e.isDeleted = false
-              and u.isDeleted = false
-              and u.gender = :gender
-              and u.age between :minimumAge and :maximumAge
-            order by e.completedAt desc
-            """)
-    List<ExerciseSession> findCompletedMeasurementsForCohort(
-            @Param("mode") ExerciseSessionMode mode,
-            @Param("status") ExerciseSessionStatus status,
-            @Param("gender") Gender gender,
+    @Query(value = """
+            with completed_groups as (
+                select es.user_id,
+                       es.measurement_group_id,
+                       u.age as measurement_age,
+                       max(case when es.exercise_type = 'CHAIR_STAND' then es.valid_count end) as chair_stand_value,
+                       max(case when es.exercise_type = 'SIT_UP' then es.valid_count end) as sit_up_value,
+                       max(case when es.exercise_type = 'PUSH_UP' then es.valid_count end) as push_up_value,
+                       max(case when es.exercise_type = 'PLANK' then es.valid_duration_ms / 1000.0 end) as plank_value,
+                       max(es.completed_at) as group_completed_at
+                from exercise_session es
+                join users u on u.id = es.user_id
+                where es.session_mode = 'MEASUREMENT'
+                  and es.status = 'COMPLETED'
+                  and es.is_deleted = false
+                  and es.measurement_group_id is not null
+                  and u.is_deleted = false
+                  and u.id <> :excludedUserId
+                  and u.gender = :genderCode
+                  and u.age between :minimumAge and :maximumAge
+                group by es.user_id, es.measurement_group_id, u.age
+                having count(distinct es.exercise_type) = 4
+            ), latest_groups as (
+                select completed_groups.*,
+                       row_number() over (
+                           partition by user_id
+                           order by group_completed_at desc, measurement_group_id desc
+                       ) as row_number
+                from completed_groups
+            )
+            select measurement_age as "measurementAge",
+                   chair_stand_value::double precision as "chairStandValue",
+                   sit_up_value::double precision as "sitUpValue",
+                   push_up_value::double precision as "pushUpValue",
+                   plank_value::double precision as "plankValue"
+            from latest_groups
+            where row_number = 1
+            """, nativeQuery = true)
+    List<CohortMeasurementProjection> findLatestCompletedMeasurementsForCohort(
+            @Param("genderCode") String genderCode,
             @Param("minimumAge") int minimumAge,
-            @Param("maximumAge") int maximumAge
+            @Param("maximumAge") int maximumAge,
+            @Param("excludedUserId") Long excludedUserId
     );
 
     @Query("""
