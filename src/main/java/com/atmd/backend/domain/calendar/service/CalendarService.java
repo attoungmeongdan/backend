@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -26,6 +27,7 @@ import java.util.stream.Collectors;
 public class CalendarService {
 
     private final ExerciseSessionRepository exerciseSessionRepository;
+    private final Clock clock;
 
     public CalendarResponseDTO getMonthlyCalendar(Long userId, int year, int month) {
 
@@ -38,7 +40,7 @@ public class CalendarService {
         LocalDate startDate = yearMonth.atDay(1);
         LocalDate endDate = yearMonth.atEndOfMonth();
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
 
         boolean isCurrentMonth =
                 year == today.getYear() &&
@@ -101,9 +103,11 @@ public class CalendarService {
 
         // 해당 월의 모든 날짜를 반환
         List<CalendarResponseDTO.DailyRecord> dailyRecords = new ArrayList<>();
-        for (int day = 1; day <= totalTargetDays; day++) {
+
+        for (int day = 1; day <= yearMonth.lengthOfMonth(); day++) {
             LocalDate date = yearMonth.atDay(day);
             int exerciseCount = exerciseCountByDate.getOrDefault(date, 0);
+
             dailyRecords.add(
                     CalendarResponseDTO.DailyRecord.builder()
                             .date(date)
@@ -124,7 +128,7 @@ public class CalendarService {
 
     public List<RecentExerciseStatusDTO> getRecentSevenDaysStatus(Long userId) {
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         LocalDate startDate = today.minusDays(6);
 
         LocalDateTime startDateTime = startDate.atStartOfDay();

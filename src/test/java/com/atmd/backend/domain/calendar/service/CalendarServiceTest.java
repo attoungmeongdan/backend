@@ -10,16 +10,18 @@ import com.atmd.backend.domain.fitness.enums.ExerciseType;
 import com.atmd.backend.domain.fitness.repository.ExerciseSessionRepository;
 import com.atmd.backend.domain.user.entity.User;
 import com.atmd.backend.global.common.exception.GeneralException;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,11 +33,28 @@ import static org.mockito.BDDMockito.given;
 @ExtendWith(MockitoExtension.class)
 class CalendarServiceTest {
 
-    @InjectMocks
-    private CalendarService calendarService;
+    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
+
+    private static final LocalDate FIXED_TODAY =
+            LocalDate.of(2026, 9, 10);
 
     @Mock
     private ExerciseSessionRepository exerciseSessionRepository;
+
+    private CalendarService calendarService;
+
+    @BeforeEach
+    void setUp() {
+        Clock fixedClock = Clock.fixed(
+                FIXED_TODAY.atStartOfDay(SEOUL).toInstant(),
+                SEOUL
+        );
+
+        calendarService = new CalendarService(
+                exerciseSessionRepository,
+                fixedClock
+        );
+    }
 
     @Nested
     @DisplayName("월별 캘린더 조회 테스트")
@@ -99,14 +118,27 @@ class CalendarServiceTest {
             assertThat(result.getYear()).isEqualTo(2026);
             assertThat(result.getMonth()).isEqualTo(9);
 
-            assertThat(result.getDailyRecords()).hasSize(10);
+            // 9/1에 PUSH_UP + PLANK = 서로 다른 2종
+            assertThat(result.getDailyRecords()).hasSize(30);
+
             assertThat(result.getDailyRecords().get(0).getDate())
                     .isEqualTo(LocalDate.of(2026, 9, 1));
+
             assertThat(result.getDailyRecords().get(0).getExerciseCount())
                     .isEqualTo(2);
 
+            // 9/2에는 운동 기록이 없으므로 0개
+            assertThat(result.getDailyRecords().get(1).getDate())
+                    .isEqualTo(LocalDate.of(2026, 9, 2));
+
+            assertThat(result.getDailyRecords().get(1).getExerciseCount())
+                    .isEqualTo(0);
+
             // 운동을 한 날짜는 1일
             assertThat(result.getCompletedDays()).isEqualTo(1);
+
+            // 오늘이 9/10이므로 목표 일수는 10일
+            assertThat(result.getTotalTargetDays()).isEqualTo(10);
         }
 
         @Test
@@ -140,7 +172,7 @@ class CalendarServiceTest {
             // given
             Long userId = 1L;
 
-            LocalDate today = LocalDate.now();
+            LocalDate today = FIXED_TODAY;
             LocalDate startDate = today.minusDays(6);
 
             User mockUser = User.builder()
