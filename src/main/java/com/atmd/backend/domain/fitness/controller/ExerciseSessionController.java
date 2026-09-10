@@ -95,7 +95,7 @@ public class ExerciseSessionController {
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "새 측정 그룹 및 첫 세션 생성 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증되지 않은 요청"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "진행 중인 세션이 있거나 오늘 측정을 이미 완료함")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "진행 중인 세션이 있음")
     })
     @PostMapping("/measurement/restart")
     public ResponseEntity<ApiResponse<ExerciseSessionCreateResponse>> restartMeasurement() {
