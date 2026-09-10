@@ -4,6 +4,7 @@ import com.atmd.backend.domain.fitness.entity.ExerciseSession;
 import com.atmd.backend.domain.fitness.enums.ExerciseSessionStatus;
 import com.atmd.backend.domain.fitness.enums.ExerciseSessionMode;
 import com.atmd.backend.domain.fitness.enums.ExerciseType;
+import com.atmd.backend.domain.user.entity.enums.Gender;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.domain.Pageable;
@@ -35,6 +36,26 @@ public interface ExerciseSessionRepository extends JpaRepository<ExerciseSession
     );
 
     List<ExerciseSession> findAllByUserIdAndMeasurementGroupIdAndIsDeletedFalse(Long userId, String groupId);
+
+    @Query("""
+            select e
+            from ExerciseSession e
+            join fetch e.user u
+            where e.mode = :mode
+              and e.status = :status
+              and e.isDeleted = false
+              and u.isDeleted = false
+              and u.gender = :gender
+              and u.age between :minimumAge and :maximumAge
+            order by e.completedAt desc
+            """)
+    List<ExerciseSession> findCompletedMeasurementsForCohort(
+            @Param("mode") ExerciseSessionMode mode,
+            @Param("status") ExerciseSessionStatus status,
+            @Param("gender") Gender gender,
+            @Param("minimumAge") int minimumAge,
+            @Param("maximumAge") int maximumAge
+    );
 
     @Query("""
             select e.measurementGroupId
