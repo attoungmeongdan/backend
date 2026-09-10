@@ -1,6 +1,7 @@
 package com.atmd.backend.domain.fitness.service;
 
 import com.atmd.backend.domain.fitness.dto.response.MeasurementHistoryResponse;
+import com.atmd.backend.domain.fitness.dto.response.MeasurementResultsResponse;
 import com.atmd.backend.domain.fitness.entity.ExerciseSession;
 import com.atmd.backend.domain.fitness.enums.ExerciseSessionMode;
 import com.atmd.backend.domain.fitness.enums.ExerciseSessionStatus;
@@ -19,7 +20,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.mockito.ArgumentCaptor;
 
 class ExerciseRecordServiceTest {
 
@@ -48,10 +51,43 @@ class ExerciseRecordServiceTest {
 
         MeasurementHistoryResponse response = service.getMeasurementHistory(1L);
 
-        assertThat(response.today()).isNotNull();
-        assertThat(response.today().totalScore()).isEqualTo(121.7);
-        assertThat(response.today().exercises().get(ExerciseType.PLANK).value()).isEqualTo(48.7);
-        assertThat(response.previousMeasurements()).isEmpty();
+        assertThat(response.chairStand().today().value()).isEqualTo(24.0);
+        assertThat(response.sitUp().today().value()).isEqualTo(31.0);
+        assertThat(response.pushUp().today().value()).isEqualTo(18.0);
+        assertThat(response.plank().today().value()).isEqualTo(48.7);
+        assertThat(response.plank().today().unit()).isEqualTo("SECOND");
+        assertThat(response.chairStand().previousMeasurements()).isEmpty();
+
+        ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
+        verify(repository).findRecentCompletedMeasurementGroupIds(
+                eq(1L), eq(ExerciseSessionMode.MEASUREMENT),
+                eq(ExerciseSessionStatus.COMPLETED), pageable.capture()
+        );
+        assertThat(pageable.getValue().getPageSize()).isEqualTo(5);
+    }
+
+    @Test
+    void returnsOnlyMeasuredValuesForCompletedGroup() {
+        ExerciseSessionRepository repository = mock(ExerciseSessionRepository.class);
+        ExerciseRecordService service = new ExerciseRecordService(repository);
+        String groupId = "completed-group";
+        LocalDateTime completedAt = LocalDateTime.of(2026, 9, 11, 12, 0);
+        List<ExerciseSession> sessions = List.of(
+                completedSession(groupId, ExerciseType.CHAIR_STAND, 24, 0, completedAt),
+                completedSession(groupId, ExerciseType.SIT_UP, 31, 0, completedAt),
+                completedSession(groupId, ExerciseType.PUSH_UP, 18, 0, completedAt),
+                completedSession(groupId, ExerciseType.PLANK, 0, 48_700, completedAt)
+        );
+        when(repository.findAllByUserIdAndMeasurementGroupIdAndIsDeletedFalse(1L, groupId))
+                .thenReturn(sessions);
+
+        MeasurementResultsResponse response = service.getMeasurementResults(1L, groupId);
+
+        assertThat(response.measurementGroupId()).isEqualTo(groupId);
+        assertThat(response.exercises()).hasSize(4);
+        assertThat(response.exercises().get(0).value()).isEqualTo(24.0);
+        assertThat(response.exercises().get(3).value()).isEqualTo(48.7);
+        assertThat(response.exercises().get(3).unit()).isEqualTo("SECOND");
     }
 
     private ExerciseSession session(
@@ -67,6 +103,19 @@ class ExerciseRecordServiceTest {
         when(session.getValidCount()).thenReturn(count);
         when(session.getValidDurationMs()).thenReturn(durationMs);
         when(session.getCompletedAt()).thenReturn(completedAt);
+        return session;
+    }
+
+    private ExerciseSession completedSession(
+            String groupId,
+            ExerciseType type,
+            int count,
+            long durationMs,
+            LocalDateTime completedAt
+    ) {
+        ExerciseSession session = session(groupId, type, count, durationMs, completedAt);
+        when(session.getMode()).thenReturn(ExerciseSessionMode.MEASUREMENT);
+        when(session.getStatus()).thenReturn(ExerciseSessionStatus.COMPLETED);
         return session;
     }
 }
