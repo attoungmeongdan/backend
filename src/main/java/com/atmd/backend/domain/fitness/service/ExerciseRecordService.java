@@ -1,8 +1,8 @@
 package com.atmd.backend.domain.fitness.service;
 
-import com.atmd.backend.domain.fitness.dto.response.MeasurementExerciseValueResponse;
+import com.atmd.backend.domain.fitness.dto.response.ExerciseMeasurementHistoryResponse;
 import com.atmd.backend.domain.fitness.dto.response.MeasurementHistoryResponse;
-import com.atmd.backend.domain.fitness.dto.response.MeasurementRecordResponse;
+import com.atmd.backend.domain.fitness.dto.response.MeasurementHistoryValueResponse;
 import com.atmd.backend.domain.fitness.dto.response.MeasuredExerciseResponse;
 import com.atmd.backend.domain.fitness.dto.response.MeasurementResultsResponse;
 import com.atmd.backend.domain.fitness.entity.ExerciseSession;
@@ -31,7 +31,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ExerciseRecordService {
     private static final ZoneId SERVER_ZONE = ZoneId.of("Asia/Seoul");
-    private static final int PREVIOUS_MEASUREMENT_LIMIT = 5;
+    private static final int RECENT_MEASUREMENT_LIMIT = 5;
 
     private final ExerciseSessionRepository exerciseSessionRepository;
 
@@ -41,10 +41,10 @@ public class ExerciseRecordService {
                 userId,
                 ExerciseSessionMode.MEASUREMENT,
                 ExerciseSessionStatus.COMPLETED,
-                PageRequest.of(0, PREVIOUS_MEASUREMENT_LIMIT + 1)
+                PageRequest.of(0, RECENT_MEASUREMENT_LIMIT)
         );
         if (groupIds.isEmpty()) {
-            return new MeasurementHistoryResponse(null, List.of());
+            return emptyMeasurementHistory();
         }
 
         Map<String, List<ExerciseSession>> sessionsByGroup = new LinkedHashMap<>();
@@ -53,23 +53,29 @@ public class ExerciseRecordService {
                 userId, groupIds, ExerciseSessionStatus.COMPLETED
         ).forEach(session -> sessionsByGroup.get(session.getMeasurementGroupId()).add(session));
 
-        List<MeasurementRecordResponse> records = groupIds.stream()
+        List<HistoryRecord> records = groupIds.stream()
                 .map(sessionsByGroup::get)
                 .filter(sessions -> sessions.size() == ExerciseType.values().length)
                 .map(this::toRecord)
-                .sorted(Comparator.comparing(MeasurementRecordResponse::measuredAt).reversed())
+                .sorted(Comparator.comparing(HistoryRecord::measuredAt).reversed())
+                .limit(RECENT_MEASUREMENT_LIMIT)
                 .toList();
 
         LocalDate today = LocalDate.now(SERVER_ZONE);
-        MeasurementRecordResponse todayRecord = records.stream()
+        HistoryRecord todayRecord = records.stream()
                 .filter(record -> record.measuredAt().toLocalDate().equals(today))
                 .findFirst()
                 .orElse(null);
-        List<MeasurementRecordResponse> previous = records.stream()
+        List<HistoryRecord> previous = records.stream()
                 .filter(record -> todayRecord == null || !record.measurementGroupId().equals(todayRecord.measurementGroupId()))
-                .limit(PREVIOUS_MEASUREMENT_LIMIT)
+                .limit(todayRecord == null ? RECENT_MEASUREMENT_LIMIT : RECENT_MEASUREMENT_LIMIT - 1)
                 .toList();
-        return new MeasurementHistoryResponse(todayRecord, previous);
+        return new MeasurementHistoryResponse(
+                toExerciseHistory(ExerciseType.CHAIR_STAND, todayRecord, previous),
+                toExerciseHistory(ExerciseType.SIT_UP, todayRecord, previous),
+                toExerciseHistory(ExerciseType.PUSH_UP, todayRecord, previous),
+                toExerciseHistory(ExerciseType.PLANK, todayRecord, previous)
+        );
     }
 
     @Transactional(readOnly = true)
@@ -109,32 +115,58 @@ public class ExerciseRecordService {
         return new MeasurementResultsResponse(measurementGroupId, measuredAt, exercises);
     }
 
-    private MeasurementRecordResponse toRecord(List<ExerciseSession> sessions) {
-        Map<ExerciseType, MeasurementExerciseValueResponse> exercises = new EnumMap<>(ExerciseType.class);
-        double totalScore = 0;
+    private HistoryRecord toRecord(List<ExerciseSession> sessions) {
+        Map<ExerciseType, Double> values = new EnumMap<>(ExerciseType.class);
         LocalDateTime measuredAt = null;
         for (ExerciseSession session : sessions) {
             boolean plank = session.getExerciseType() == ExerciseType.PLANK;
             double value = plank ? session.getValidDurationMs() / 1000.0 : session.getValidCount();
-            value = roundOneDecimal(value);
-            exercises.put(
-                    session.getExerciseType(),
-                    new MeasurementExerciseValueResponse(value, plank ? "SECOND" : "COUNT")
-            );
-            totalScore += value;
+            values.put(session.getExerciseType(), roundOneDecimal(value));
             if (measuredAt == null || session.getCompletedAt().isAfter(measuredAt)) {
                 measuredAt = session.getCompletedAt();
             }
         }
-        return new MeasurementRecordResponse(
+        return new HistoryRecord(
                 sessions.get(0).getMeasurementGroupId(),
                 measuredAt,
-                roundOneDecimal(totalScore),
-                Map.copyOf(exercises)
+                Map.copyOf(values)
         );
+    }
+
+    private ExerciseMeasurementHistoryResponse toExerciseHistory(
+            ExerciseType exerciseType,
+            HistoryRecord today,
+            List<HistoryRecord> previous
+    ) {
+        MeasurementHistoryValueResponse todayValue = today == null ? null : toHistoryValue(today, exerciseType);
+        List<MeasurementHistoryValueResponse> previousValues = previous.stream()
+                .map(record -> toHistoryValue(record, exerciseType))
+                .toList();
+        return new ExerciseMeasurementHistoryResponse(todayValue, previousValues);
+    }
+
+    private MeasurementHistoryValueResponse toHistoryValue(HistoryRecord record, ExerciseType exerciseType) {
+        return new MeasurementHistoryValueResponse(
+                record.measurementGroupId(),
+                record.measuredAt(),
+                record.values().get(exerciseType),
+                exerciseType == ExerciseType.PLANK ? "SECOND" : "COUNT"
+        );
+    }
+
+    private MeasurementHistoryResponse emptyMeasurementHistory() {
+        ExerciseMeasurementHistoryResponse empty = new ExerciseMeasurementHistoryResponse(null, List.of());
+        return new MeasurementHistoryResponse(empty, empty, empty, empty);
     }
 
     private double roundOneDecimal(double value) {
         return Math.round(value * 10.0) / 10.0;
+    }
+
+    private record HistoryRecord(
+            String measurementGroupId,
+            LocalDateTime measuredAt,
+            Map<ExerciseType, Double> values
+    ) {
     }
 }

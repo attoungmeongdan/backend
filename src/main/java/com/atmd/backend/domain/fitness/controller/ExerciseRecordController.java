@@ -33,7 +33,7 @@ public class ExerciseRecordController {
     private final MeasurementInsightService measurementInsightService;
     private final WorkoutAnalysisService workoutAnalysisService;
 
-    @Operation(summary = "측정 이력 조회", description = "로그인한 사용자의 완료된 체력 측정 이력을 최신순으로 조회합니다.")
+    @Operation(summary = "운동별 최근 측정 이력 조회", description = "오늘을 포함한 최근 완료 측정 5회를 의자 앉았다 일어나기, 윗몸일으키기, 팔굽혀펴기, 플랭크별로 분리하여 조회합니다. 오늘 기록이 있으면 오늘 1회와 이전 4회를 반환합니다.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "측정 이력 조회 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증되지 않은 요청")
