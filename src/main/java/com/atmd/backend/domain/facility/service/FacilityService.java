@@ -39,7 +39,15 @@ public class FacilityService {
         double userLat = address.getLat();
         double userLng = address.getLng();
 
-        List<FacilityMarkerResponseDTO> markers = facilityRepository.findWithinRadius(userLat, userLng)
+        // 5km 바운딩 박스: 위도 ±0.045°, 경도 ±0.056° (한국 위도 기준)
+        double latDelta = 0.045;
+        double lngDelta = 0.056;
+
+        List<FacilityMarkerResponseDTO> markers = facilityRepository.findWithinRadius(
+                        userLat, userLng,
+                        userLat - latDelta, userLat + latDelta,
+                        userLng - lngDelta, userLng + lngDelta
+                )
                 .stream()
                 .map(f -> FacilityMarkerResponseDTO.of(f, calculateDistance(userLat, userLng, f.getLat(), f.getLng())))
                 .sorted(java.util.Comparator.comparingDouble(FacilityMarkerResponseDTO::getDistanceKm))
