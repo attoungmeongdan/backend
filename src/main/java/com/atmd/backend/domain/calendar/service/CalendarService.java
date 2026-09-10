@@ -5,6 +5,10 @@ import com.atmd.backend.domain.calendar.dto.response.RecentExerciseStatusDTO;
 import com.atmd.backend.domain.calendar.entity.Calendar;
 import com.atmd.backend.domain.calendar.exception.CalendarErrorCode;
 import com.atmd.backend.domain.calendar.repository.CalendarRepository;
+import com.atmd.backend.domain.fitness.entity.ExerciseSession;
+import com.atmd.backend.domain.fitness.enums.ExerciseSessionMode;
+import com.atmd.backend.domain.fitness.enums.ExerciseSessionStatus;
+import com.atmd.backend.domain.fitness.repository.ExerciseSessionRepository;
 import com.atmd.backend.global.common.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,50 +28,109 @@ import java.util.stream.Collectors;
 public class CalendarService {
 
     private final CalendarRepository calendarRepository;
+    private final ExerciseSessionRepository exerciseSessionRepository;
 
     public CalendarResponseDTO getMonthlyCalendar(Long userId, int year, int month) {
-        // 1. 월 범위 및 연도 상한/하한 유효성 검증 (Fix: year 상한 검증 추가)
+
         if (month < 1 || month > 12 || year < 1900 || year > 9999) {
             throw new GeneralException(CalendarErrorCode.INVALID_YEAR_MONTH);
         }
 
         YearMonth yearMonth = YearMonth.of(year, month);
+
         LocalDate startDate = yearMonth.atDay(1);
         LocalDate endDate = yearMonth.atEndOfMonth();
 
-        List<Calendar> records = calendarRepository
-                .findByUserIdAndExerciseDateBetweenAndIsDeletedFalse(userId, startDate, endDate);
-
         LocalDate today = LocalDate.now();
-        int totalTargetDays;
-        boolean isCurrentMonth = (year == today.getYear() && month == today.getMonthValue());
 
-        if (isCurrentMonth) {
-            totalTargetDays = today.getDayOfMonth();
-        } else {
-            totalTargetDays = yearMonth.lengthOfMonth();
+        boolean isCurrentMonth =
+                year == today.getYear() &&
+                        month == today.getMonthValue();
+
+        int totalTargetDays = isCurrentMonth
+                ? today.getDayOfMonth()
+                : yearMonth.lengthOfMonth();
+
+        /*
+         * 해당 월의 WORKOUT 완료 세션 조회
+         *
+         * start: 해당 월 1일 00:00
+         * end: 다음 달 1일 00:00
+         */
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.plusDays(1).atStartOfDay();
+
+        List<ExerciseSession> sessions =
+                exerciseSessionRepository
+                        .findAllByUserIdAndModeAndStatusAndCompletedAtGreaterThanEqualAndCompletedAtLessThanAndIsDeletedFalse(
+                                userId,
+                                ExerciseSessionMode.WORKOUT,
+                                ExerciseSessionStatus.COMPLETED,
+                                startDateTime,
+                                endDateTime
+                        );
+
+        /*
+         * 날짜별 서로 다른 운동 종류 개수 계산
+         *
+         * 예:
+         * 9/10 CHAIR_STAND
+         * 9/10 PUSH_UP
+         * 9/10 PUSH_UP
+         * 9/10 PLANK
+         *
+         * → 9/10 = 3
+         */
+        Map<LocalDate, Set<com.atmd.backend.domain.fitness.enums.ExerciseType>> exercisesByDate =
+                new HashMap<>();
+
+        for (ExerciseSession session : sessions) {
+
+            LocalDate exerciseDate = session.getCompletedAt().toLocalDate();
+
+            /*
+             * 당월인 경우 오늘 이후의 데이터는 캘린더 달성률에 포함하지 않음
+             */
+            if (isCurrentMonth && exerciseDate.isAfter(today)) {
+                continue;
+            }
+
+            exercisesByDate
+                    .computeIfAbsent(exerciseDate, key -> new HashSet<>())
+                    .add(session.getExerciseType());
         }
 
-        // 2. 완료 일수 계산 (Fix: 달성률 초과 방지를 위해 미래 날짜 완료 기록 제외)
-        int completedDays = (int) records.stream()
-                .filter(Calendar::getIsCompleted)
-                .filter(record -> {
-                    // 당월인 경우 오늘 이하의 기록만 완료 일수에 포함
-                    if (isCurrentMonth) {
-                        return !record.getExerciseDate().isAfter(today);
-                    }
-                    return true;
-                })
+        // 날짜별 운동 종류 수
+        Map<LocalDate, Integer> exerciseCountByDate = new HashMap<>();
+
+        exercisesByDate.forEach(
+                (date, exerciseTypes) ->
+                        exerciseCountByDate.put(date, exerciseTypes.size())
+        );
+
+        // 운동을 한 번이라도 한 날짜 수
+        int completedDays = (int) exerciseCountByDate.values().stream()
+                .filter(count -> count > 0)
                 .count();
 
-        int achievementRate = totalTargetDays == 0 ? 0 : (int) Math.round(((double) completedDays / totalTargetDays) * 100);
-
-        List<CalendarResponseDTO.DailyRecord> dailyRecords = records.stream()
-                .map(record -> CalendarResponseDTO.DailyRecord.builder()
-                        .date(record.getExerciseDate())
-                        .isCompleted(record.getIsCompleted())
-                        .build())
-                .collect(Collectors.toList());
+        int achievementRate =
+                totalTargetDays == 0
+                        ? 0
+                        : (int) Math.round(
+                        ((double) completedDays / totalTargetDays) * 100
+                );
+        
+        // 기록이 있는 날짜만 반환
+        List<CalendarResponseDTO.DailyRecord> dailyRecords =
+                exerciseCountByDate.entrySet().stream()
+                        .sorted(Map.Entry.comparingByKey())
+                        .map(entry ->
+                                CalendarResponseDTO.DailyRecord.builder()
+                                        .date(entry.getKey())
+                                        .exerciseCount(entry.getValue())
+                                        .build()
+                        )
+                        .collect(Collectors.toList());
 
         return CalendarResponseDTO.builder()
                 .year(year)
