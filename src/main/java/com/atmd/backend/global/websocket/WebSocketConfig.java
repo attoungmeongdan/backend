@@ -20,7 +20,8 @@ public class WebSocketConfig implements WebSocketConfigurer {
                 .setAllowedOrigins(
                         "http://localhost:3000",
                         "http://localhost:5173",
-                        "https://fittle-app.vercel.app"
+                        "https://atmd.cloud",
+                        "https://www.atmd.cloud"
                 );
     }
 }
