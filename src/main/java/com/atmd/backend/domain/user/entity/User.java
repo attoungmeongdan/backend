@@ -63,9 +63,6 @@ public class User extends BaseEntity {
     @JoinColumn(name = "address_id")
     private Address address;
 
-    @Column(name = "first_group_created", nullable = false)
-    private boolean firstGroupCreated = false;
-
     @Builder
     private User(String email, String nickname, Provider provider, String providerId, Role role,
                  Integer age, Gender gender, Double height, Double weight, Address address) {
@@ -112,9 +109,5 @@ public class User extends BaseEntity {
 
     public void updateAddress(Address address) {
         this.address = address;
-    }
-
-    public void markFirstGroupCreated() {
-        this.firstGroupCreated = true;
     }
 }
