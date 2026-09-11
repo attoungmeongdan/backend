@@ -7,6 +7,7 @@ import com.atmd.backend.domain.fitness.entity.ExerciseSession;
 import com.atmd.backend.domain.fitness.enums.ExerciseSessionMode;
 import com.atmd.backend.domain.fitness.enums.ExerciseSessionStatus;
 import com.atmd.backend.domain.fitness.enums.ExerciseType;
+import com.atmd.backend.domain.fitness.repository.CompletedMeasurementGroupProjection;
 import com.atmd.backend.domain.fitness.repository.ExerciseSessionRepository;
 import com.atmd.backend.domain.user.entity.User;
 import com.atmd.backend.global.common.exception.GeneralException;
@@ -29,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 
 @ExtendWith(MockitoExtension.class)
 class CalendarServiceTest {
@@ -139,6 +141,33 @@ class CalendarServiceTest {
 
             // 오늘이 9/10이므로 목표 일수는 10일
             assertThat(result.getTotalTargetDays()).isEqualTo(10);
+        }
+
+        @Test
+        @DisplayName("완료된 체력 측정이 있는 날짜에 측정 그룹 ID를 반환한다")
+        void getMonthlyCalendar_WithCompletedMeasurement_ReturnsMeasurementGroupId() {
+            Long userId = 1L;
+            String measurementGroupId = "550e8400-e29b-41d4-a716-446655440000";
+            LocalDateTime completedAt = LocalDateTime.of(2026, 9, 3, 12, 0);
+
+            CompletedMeasurementGroupProjection measurement =
+                    mock(CompletedMeasurementGroupProjection.class);
+            given(measurement.getMeasurementGroupId()).willReturn(measurementGroupId);
+            given(measurement.getCompletedAt()).willReturn(completedAt);
+
+            given(exerciseSessionRepository.findCompletedMeasurementGroupsInPeriod(
+                    eq(userId),
+                    eq(ExerciseSessionMode.MEASUREMENT),
+                    eq(ExerciseSessionStatus.COMPLETED),
+                    eq(LocalDate.of(2026, 9, 1).atStartOfDay()),
+                    eq(LocalDate.of(2026, 10, 1).atStartOfDay())
+            )).willReturn(List.of(measurement));
+
+            CalendarResponseDTO result = calendarService.getMonthlyCalendar(userId, 2026, 9);
+
+            assertThat(result.getDailyRecords().get(2).getMeasurementGroupId())
+                    .isEqualTo(measurementGroupId);
+            assertThat(result.getDailyRecords().get(1).getMeasurementGroupId()).isNull();
         }
 
         @Test
