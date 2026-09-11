@@ -16,11 +16,11 @@ public class SitUpAnalyzer {
     private static final double MIN_VISIBILITY = 0.6;
     private static final int CONFIRMATION_FRAMES = 3;
 
-    // SIT_UP_V1 provisional thresholds. Recalibrate with actual measurement data.
-    private static final double LYING_ANGLE_MIN = 150.0;
+    // SIT_UP_V3 provisional thresholds. Recalibrate with actual measurement data.
+    private static final double LYING_ANGLE_MIN = 145.0;
     private static final double RISING_ANGLE_MAX = 135.0;
-    private static final double UP_ANGLE_MAX = 100.0;
-    private static final double LOWERING_ANGLE_MIN = 115.0;
+    private static final double UP_ANGLE_MAX = 115.0;
+    private static final double LOWERING_ANGLE_MIN = 120.0;
 
     private final PoseMetricCalculator metricCalculator;
 
@@ -31,7 +31,7 @@ public class SitUpAnalyzer {
         if (trunkAngles.isEmpty()) {
             throw new IllegalArgumentException("Required sit-up landmarks are not visible");
         }
-        return new SitUpMetrics(trunkAngles.stream().mapToDouble(Double::doubleValue).average().orElseThrow());
+        return new SitUpMetrics(average(trunkAngles));
     }
 
     public boolean analyzeAndCount(SitUpAnalysisState state, SitUpMetrics metrics) {
@@ -73,5 +73,9 @@ public class SitUpAnalyzer {
                 && knee.visibility() >= MIN_VISIBILITY) {
             trunkAngles.add(metricCalculator.calculateAngle(shoulder, hip, knee));
         }
+    }
+
+    private double average(List<Double> values) {
+        return values.stream().mapToDouble(Double::doubleValue).average().orElseThrow();
     }
 }

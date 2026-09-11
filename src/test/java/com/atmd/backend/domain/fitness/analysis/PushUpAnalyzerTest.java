@@ -38,6 +38,20 @@ class PushUpAnalyzerTest {
         assertThat(state.getValidCount()).isZero();
     }
 
+    @Test
+    void countsWithRelaxedElbowAngles() {
+        PushUpAnalysisState state = new PushUpAnalysisState();
+
+        repeat(state, new PushUpMetrics(152, 170));
+        repeat(state, new PushUpMetrics(142, 170));
+        repeat(state, new PushUpMetrics(102, 165));
+        repeat(state, new PushUpMetrics(118, 165));
+        repeat(state, new PushUpMetrics(152, 170));
+
+        assertThat(state.getPhase()).isEqualTo(PushUpPhase.UP);
+        assertThat(state.getValidCount()).isEqualTo(1);
+    }
+
     private void repeat(PushUpAnalysisState state, PushUpMetrics metrics) {
         for (int frame = 0; frame < 3; frame++) {
             analyzer.analyzeAndCount(state, metrics);

@@ -13,18 +13,19 @@ class ChairStandAnalyzerTest {
     void countsOnlyAfterACompleteChairStandCycle() {
         ChairStandAnalysisState state = new ChairStandAnalysisState();
 
-        repeat(state, new ChairStandMetrics(90, 90));
-        assertThat(state.getPhase()).isEqualTo(ChairStandPhase.SITTING);
-
-        repeat(state, new ChairStandMetrics(130, 130));
-        repeat(state, new ChairStandMetrics(170, 160));
+        repeat(state, new ChairStandMetrics(155, 155));
         assertThat(state.getPhase()).isEqualTo(ChairStandPhase.STANDING);
         assertThat(state.getValidCount()).isZero();
 
         repeat(state, new ChairStandMetrics(140, 140));
-        repeat(state, new ChairStandMetrics(90, 90));
-
+        repeat(state, new ChairStandMetrics(120, 110));
         assertThat(state.getPhase()).isEqualTo(ChairStandPhase.SITTING);
+        assertThat(state.getValidCount()).isZero();
+
+        repeat(state, new ChairStandMetrics(140, 130));
+        repeat(state, new ChairStandMetrics(155, 155));
+
+        assertThat(state.getPhase()).isEqualTo(ChairStandPhase.STANDING);
         assertThat(state.getValidCount()).isEqualTo(1);
     }
 
@@ -32,9 +33,9 @@ class ChairStandAnalyzerTest {
     void doesNotCountAnIncompleteMovement() {
         ChairStandAnalysisState state = new ChairStandAnalysisState();
 
-        repeat(state, new ChairStandMetrics(90, 90));
-        repeat(state, new ChairStandMetrics(130, 130));
-        repeat(state, new ChairStandMetrics(170, 160));
+        repeat(state, new ChairStandMetrics(155, 155));
+        repeat(state, new ChairStandMetrics(140, 140));
+        repeat(state, new ChairStandMetrics(120, 110));
 
         assertThat(state.getValidCount()).isZero();
     }
