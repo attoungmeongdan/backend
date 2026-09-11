@@ -48,19 +48,16 @@ public class GroupService {
             throw new GeneralException(GroupErrorCode.MAX_GROUPS_EXCEEDED);
         }
 
-        boolean isFirstGroup = !owner.isFirstGroupCreated();
-        String inviteCode = generateUniqueInviteCode();
+        Integer maxMemberCount = request.getMaxMemberCount();
+        if (maxMemberCount == null || !Group.isValidMemberCount(maxMemberCount)) {
+            throw new GeneralException(GroupErrorCode.INVALID_MEMBER_COUNT);
+        }
 
-        Group group = isFirstGroup
-                ? Group.createFirst(owner, request.getName(), inviteCode, request.getPenalty())
-                : createSubscribedGroup(owner, request, inviteCode);
+        String inviteCode = generateUniqueInviteCode();
+        Group group = Group.create(owner, request.getName(), inviteCode, request.getPenalty(), maxMemberCount);
 
         groupRepository.save(group);
         groupUserRepository.save(GroupUser.of(group, owner));
-
-        if (isFirstGroup) {
-            owner.markFirstGroupCreated();
-        }
 
         return GroupResponseDTO.of(group, 1L, userId);
     }
@@ -164,14 +161,6 @@ public class GroupService {
 
         groupUserRepository.save(GroupUser.of(group, user));
         return GroupJoinResponseDTO.of(group.getId(), group.getName(), currentCount + 1);
-    }
-
-    private Group createSubscribedGroup(User owner, GroupCreateRequestDTO request, String inviteCode) {
-        Integer requested = request.getMaxMemberCount();
-        if (requested == null || !Group.isValidSubscribedCapacity(requested)) {
-            throw new GeneralException(GroupErrorCode.INVALID_MEMBER_COUNT);
-        }
-        return Group.createSubscribed(owner, request.getName(), inviteCode, request.getPenalty(), requested);
     }
 
     private String generateUniqueInviteCode() {
