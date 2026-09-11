@@ -16,11 +16,11 @@ public class ChairStandAnalyzer {
     private static final double MIN_VISIBILITY = 0.6;
     private static final int CONFIRMATION_FRAMES = 3;
 
-    // CHAIR_STAND_V1 초기 임계값. 실제 측정 데이터로 보정해야 한다.
-    private static final double SITTING_KNEE_MAX = 110.0;
+    // CHAIR_STAND_V2 초기 임계값. 실제 측정 데이터로 보정해야 한다.
+    private static final double SITTING_KNEE_MAX = 125.0;
     private static final double SITTING_HIP_MAX = 120.0;
-    private static final double RISING_KNEE_MIN = 120.0;
-    private static final double STANDING_KNEE_MIN = 160.0;
+    private static final double RISING_KNEE_MIN = 135.0;
+    private static final double STANDING_KNEE_MIN = 150.0;
     private static final double STANDING_HIP_MIN = 150.0;
     private static final double LOWERING_KNEE_MAX = 145.0;
 
@@ -53,7 +53,7 @@ public class ChairStandAnalyzer {
     public boolean analyzeAndCount(ChairStandAnalysisState state, ChairStandMetrics metrics) {
         ChairStandPhase previous = state.getPhase();
         boolean changed = analyze(state, metrics);
-        if (changed && previous == ChairStandPhase.LOWERING && state.getPhase() == ChairStandPhase.SITTING) {
+        if (changed && previous == ChairStandPhase.RISING && state.getPhase() == ChairStandPhase.STANDING) {
             state.incrementValidCount();
             return true;
         }
@@ -62,7 +62,7 @@ public class ChairStandAnalyzer {
 
     private ChairStandPhase targetPhase(ChairStandPhase current, ChairStandMetrics metrics) {
         return switch (current) {
-            case UNKNOWN -> isSitting(metrics) ? ChairStandPhase.SITTING : null;
+            case UNKNOWN -> isStanding(metrics) ? ChairStandPhase.STANDING : null;
             case SITTING -> metrics.kneeAngle() >= RISING_KNEE_MIN ? ChairStandPhase.RISING : null;
             case RISING -> isStanding(metrics) ? ChairStandPhase.STANDING : null;
             case STANDING -> metrics.kneeAngle() <= LOWERING_KNEE_MAX ? ChairStandPhase.LOWERING : null;
