@@ -5,6 +5,8 @@ import com.atmd.backend.domain.user.entity.User;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.time.LocalDateTime;
+
 @Getter
 @Builder
 public class UserProfileResponseDTO {
@@ -19,6 +21,7 @@ public class UserProfileResponseDTO {
     private Double weight;
     private Double bmi;
     private AddressResponse address;
+    private LocalDateTime createdAt;
 
     public static UserProfileResponseDTO from(User user) {
         Address addr = user.getAddress();
@@ -33,6 +36,7 @@ public class UserProfileResponseDTO {
                 .weight(user.getWeight())
                 .bmi(user.getBmi())
                 .address(addr != null ? AddressResponse.from(addr) : null)
+                .createdAt(user.getCreatedAt())
                 .build();
     }
 
