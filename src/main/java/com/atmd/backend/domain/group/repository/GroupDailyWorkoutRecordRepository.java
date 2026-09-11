@@ -37,26 +37,18 @@ public interface GroupDailyWorkoutRecordRepository extends JpaRepository<GroupDa
 
     @Query(value = """
             SELECT
-                u.id AS userId,
-                u.nickname AS nickname,
-                (u.id = g.owner_id) AS isOwner,
-                COALESCE(SUM(r.chair_stand_count), 0) AS chairStandCount,
-                COALESCE(SUM(r.push_up_count), 0) AS pushUpCount,
-                COALESCE(SUM(r.sit_up_count), 0) AS sitUpCount,
-                COALESCE(SUM(r.plank_duration_ms), 0) AS plankDurationMs
-            FROM group_users gu
-            JOIN users u ON u.id = gu.user_id
-            JOIN groups g ON g.id = gu.group_id
-            LEFT JOIN group_daily_workout_records r
-                ON r.group_id = gu.group_id
-               AND r.user_id = gu.user_id
-               AND r.workout_date >= :startDate
-               AND r.workout_date <  :endDateExclusive
-            WHERE gu.group_id = :groupId
-            GROUP BY u.id, u.nickname, g.owner_id
-            ORDER BY u.id
+                r.user_id AS userId,
+                r.workout_date AS workoutDate,
+                r.chair_stand_count AS chairStandCount,
+                r.push_up_count AS pushUpCount,
+                r.sit_up_count AS sitUpCount,
+                r.plank_duration_ms AS plankDurationMs
+            FROM group_daily_workout_records r
+            WHERE r.group_id = :groupId
+              AND r.workout_date >= :startDate
+              AND r.workout_date <  :endDateExclusive
             """, nativeQuery = true)
-    List<GroupMemberWorkoutAggregateProjection> aggregateByGroupAndDateRange(
+    List<GroupDailyRecordItemProjection> findItemsByGroupAndDateRange(
             @Param("groupId") Long groupId,
             @Param("startDate") LocalDate startDate,
             @Param("endDateExclusive") LocalDate endDateExclusive
