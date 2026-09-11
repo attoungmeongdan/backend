@@ -39,6 +39,20 @@ class SitUpAnalyzerTest {
         assertThat(state.getValidCount()).isZero();
     }
 
+    @Test
+    void countsWithRelaxedHipAngles() {
+        SitUpAnalysisState state = new SitUpAnalysisState();
+
+        repeat(state, 146);
+        repeat(state, 130);
+        repeat(state, 113);
+        repeat(state, 122);
+        repeat(state, 146);
+
+        assertThat(state.getPhase()).isEqualTo(SitUpPhase.LYING);
+        assertThat(state.getValidCount()).isEqualTo(1);
+    }
+
     private void repeat(SitUpAnalysisState state, double angle) {
         for (int frame = 0; frame < 3; frame++) {
             analyzer.analyzeAndCount(state, new SitUpMetrics(angle));

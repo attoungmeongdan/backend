@@ -118,11 +118,11 @@ public class ExerciseSession extends BaseEntity {
 
         return switch (exerciseType) {
             case CHAIR_STAND -> new ExerciseSession(user, mode, exerciseType, MeasurementType.REPETITION,
-                    EvaluationStandard.KSPO, timeLimitSeconds, "CHAIR_STAND_V1", measurementGroupId);
+                    EvaluationStandard.KSPO, timeLimitSeconds, "CHAIR_STAND_V2", measurementGroupId);
             case PUSH_UP -> new ExerciseSession(user, mode, exerciseType, MeasurementType.REPETITION,
-                    EvaluationStandard.FITPLE, timeLimitSeconds, "PUSH_UP_V1", measurementGroupId);
+                    EvaluationStandard.FITPLE, timeLimitSeconds, "PUSH_UP_V2", measurementGroupId);
             case SIT_UP -> new ExerciseSession(user, mode, exerciseType, MeasurementType.REPETITION,
-                    EvaluationStandard.KSPO, timeLimitSeconds, "SIT_UP_V1", measurementGroupId);
+                    EvaluationStandard.KSPO, timeLimitSeconds, "SIT_UP_V3", measurementGroupId);
             case PLANK -> new ExerciseSession(user, mode, exerciseType, MeasurementType.VALID_DURATION,
                     EvaluationStandard.FITPLE, timeLimitSeconds, "PLANK_V1", measurementGroupId);
             default -> throw new IllegalArgumentException("Unsupported exercise: " + exerciseType);

@@ -14,10 +14,10 @@ import java.util.List;
 public class PushUpAnalyzer {
     private static final double MIN_VISIBILITY = 0.6;
     private static final int CONFIRMATION_FRAMES = 3;
-    private static final double UP_ELBOW_MIN = 155;
+    private static final double UP_ELBOW_MIN = 150;
     private static final double DESCENDING_ELBOW_MAX = 145;
-    private static final double DOWN_ELBOW_MAX = 90;
-    private static final double ASCENDING_ELBOW_MIN = 105;
+    private static final double DOWN_ELBOW_MAX = 105;
+    private static final double ASCENDING_ELBOW_MIN = 115;
     private static final double BODY_ALIGNMENT_MIN = 160;
 
     private final PoseMetricCalculator metricCalculator;

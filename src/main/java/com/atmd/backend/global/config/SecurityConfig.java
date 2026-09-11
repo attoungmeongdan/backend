@@ -39,7 +39,8 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
                                 "/api/v1/auth/**",
-                                "/ws/v1/exercise-sessions/**"
+                                "/ws/v1/exercise-sessions/**",
+								"/oauth2/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
@@ -68,7 +69,8 @@ public class SecurityConfig {
         config.setAllowedOrigins(List.of(
                 "http://localhost:3000",
                 "http://localhost:5173",
-                "https://fittle-app.vercel.app"
+                "https://atmd.cloud",
+				"https://www.atmd.cloud"
         ));
         config.setAllowCredentials(true);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
