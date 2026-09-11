@@ -11,6 +11,10 @@ import java.util.List;
 
 public interface GroupDailyWorkoutRecordRepository extends JpaRepository<GroupDailyWorkoutRecord, Long> {
 
+    @Modifying
+    @Query("delete from GroupDailyWorkoutRecord r where r.group.id = :groupId")
+    void deleteAllByGroupId(@Param("groupId") Long groupId);
+
     @Query(value = """
             SELECT
                 u.id AS userId,
