@@ -22,7 +22,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Group extends BaseEntity {
 
-    private static final int GENERAL_MAX_MEMBER_COUNT = 2;
+    public static final int GENERAL_MAX_MEMBER_COUNT = 2;
+    public static final int SUBSCRIBED_MAX_MEMBER_COUNT = 5;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -35,7 +36,7 @@ public class Group extends BaseEntity {
     @Column(nullable = false, length = 20)
     private GroupMembership membership;
 
-    @Column(nullable = false, unique = true, length = 20)
+    @Column(name = "invite_code", nullable = false, unique = true, length = 20)
     private String inviteCode;
 
     @Column(nullable = false)
@@ -80,11 +81,13 @@ public class Group extends BaseEntity {
         this.penalty = penalty;
     }
 
-    public boolean canAddMember(long currentMemberCount) {
-        if (membership == GroupMembership.GENERAL) {
-            return currentMemberCount < GENERAL_MAX_MEMBER_COUNT;
-        }
+    public int getMaxMemberCount() {
+        return membership == GroupMembership.GENERAL
+                ? GENERAL_MAX_MEMBER_COUNT
+                : SUBSCRIBED_MAX_MEMBER_COUNT;
+    }
 
-        return true;
+    public boolean canAddMember(long currentMemberCount) {
+        return currentMemberCount < getMaxMemberCount();
     }
 }
