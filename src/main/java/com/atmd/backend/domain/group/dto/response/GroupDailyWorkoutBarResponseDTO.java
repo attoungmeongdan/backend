@@ -13,5 +13,5 @@ public class GroupDailyWorkoutBarResponseDTO {
     private Long groupId;
     private String groupName;
     private LocalDate date;
-    private List<GroupMemberWorkoutBarResponseDTO> members;
+    private List<GroupExerciseBarSectionDTO> exercises;
 }
