@@ -47,9 +47,6 @@ public class Group extends BaseEntity {
     @Column(name = "invite_code", nullable = false, unique = true, length = 20)
     private String inviteCode;
 
-    @Column(nullable = false)
-    private String penalty;
-
     @Column(name = "max_member_count", nullable = false)
     private int maxMemberCount;
 
@@ -62,7 +59,6 @@ public class Group extends BaseEntity {
             String name,
             GroupMembership membership,
             String inviteCode,
-            String penalty,
             int maxMemberCount,
             int price
     ) {
@@ -70,7 +66,6 @@ public class Group extends BaseEntity {
         this.name = name;
         this.membership = membership;
         this.inviteCode = inviteCode;
-        this.penalty = penalty;
         this.maxMemberCount = maxMemberCount;
         this.price = price;
     }
@@ -79,7 +74,6 @@ public class Group extends BaseEntity {
             User owner,
             String name,
             String inviteCode,
-            String penalty,
             int maxMemberCount
     ) {
         GroupMembership membership = maxMemberCount <= FREE_MEMBER_THRESHOLD
@@ -91,7 +85,6 @@ public class Group extends BaseEntity {
                 .name(name)
                 .membership(membership)
                 .inviteCode(inviteCode)
-                .penalty(penalty)
                 .maxMemberCount(maxMemberCount)
                 .price(price)
                 .build();
@@ -115,9 +108,5 @@ public class Group extends BaseEntity {
 
     public void updateName(String name) {
         this.name = name;
-    }
-
-    public void updatePenalty(String penalty) {
-        this.penalty = penalty;
     }
 }

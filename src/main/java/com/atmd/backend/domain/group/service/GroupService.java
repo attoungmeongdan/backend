@@ -54,7 +54,7 @@ public class GroupService {
         }
 
         String inviteCode = generateUniqueInviteCode();
-        Group group = Group.create(owner, request.getName(), inviteCode, request.getPenalty(), maxMemberCount);
+        Group group = Group.create(owner, request.getName(), inviteCode, maxMemberCount);
 
         groupRepository.save(group);
         groupUserRepository.save(GroupUser.of(group, owner));
