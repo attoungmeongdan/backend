@@ -3,6 +3,7 @@ package com.atmd.backend.domain.user.dto.request;
 import com.atmd.backend.domain.user.entity.enums.Gender;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
@@ -16,6 +17,7 @@ public class UserProfileUpdateRequest {
     private String nickname;
 
     @Min(1)
+    @Max(100)
     private Integer age;
     private Gender gender;
     @DecimalMin("0.1")
