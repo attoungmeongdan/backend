@@ -23,6 +23,7 @@ import com.atmd.backend.domain.fitness.exception.FitnessErrorCode;
 import com.atmd.backend.domain.fitness.pose.PoseFrameSmoother;
 import com.atmd.backend.domain.fitness.pose.PoseFrameValidator;
 import com.atmd.backend.domain.fitness.repository.ExerciseSessionRepository;
+import com.atmd.backend.domain.group.service.GroupWorkoutRecordService;
 import com.atmd.backend.domain.user.entity.User;
 import com.atmd.backend.domain.user.repository.UserRepository;
 import com.atmd.backend.global.common.exception.GeneralException;
@@ -58,6 +59,7 @@ public class ExerciseSessionService {
     private final PushUpAnalyzer pushUpAnalyzer;
     private final SitUpAnalyzer sitUpAnalyzer;
     private final PlankAnalyzer plankAnalyzer;
+    private final GroupWorkoutRecordService groupWorkoutRecordService;
 
     @Value("${fitness.exercise-session.idle-timeout-seconds:15}")
     private long idleTimeoutSeconds;
@@ -349,6 +351,15 @@ public class ExerciseSessionService {
                     runtime.validDurationMs(completedAt),
                     toLocalDateTime(completedAt)
             );
+            if (session.getMode() == ExerciseSessionMode.WORKOUT) {
+                groupWorkoutRecordService.accumulateCompletedWorkout(
+                        runtime.getUserId(),
+                        runtime.getExerciseType(),
+                        runtime.validCount(),
+                        runtime.validDurationMs(completedAt),
+                        completedAt
+                );
+            }
         }
         finalizeRuntimeAfterCommit(runtime);
     }
