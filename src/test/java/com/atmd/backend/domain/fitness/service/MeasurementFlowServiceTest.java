@@ -47,6 +47,28 @@ class MeasurementFlowServiceTest {
     }
 
     @Test
+    void resumeRetriesExpiredExerciseInSameMeasurementGroup() {
+        ExerciseSession expiredChairStand = session(
+                ExerciseType.CHAIR_STAND, ExerciseSessionStatus.EXPIRED
+        );
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(mock(User.class)));
+        when(repository.findAllByUserIdAndModeAndCreatedAtGreaterThanEqualAndCreatedAtLessThanAndIsDeletedFalseOrderByCreatedAtAsc(
+                eq(1L), eq(ExerciseSessionMode.MEASUREMENT), any(LocalDateTime.class), any(LocalDateTime.class)
+        )).thenReturn(List.of(expiredChairStand));
+        when(sessionService.create(eq(1L), any(ExerciseSessionCreateRequest.class)))
+                .thenReturn(mock(ExerciseSessionCreateResponse.class));
+
+        service.resume(1L);
+
+        ArgumentCaptor<ExerciseSessionCreateRequest> requestCaptor =
+                ArgumentCaptor.forClass(ExerciseSessionCreateRequest.class);
+        verify(sessionService).create(eq(1L), requestCaptor.capture());
+        assertThat(requestCaptor.getValue().mode()).isEqualTo(ExerciseSessionMode.MEASUREMENT);
+        assertThat(requestCaptor.getValue().exerciseType()).isEqualTo(ExerciseType.CHAIR_STAND);
+        assertThat(requestCaptor.getValue().measurementGroupId()).isEqualTo("group-id");
+    }
+
+    @Test
     void restartDiscardsPreviousGroupAndCreatesChairStand() {
         ExerciseSession previous = session(ExerciseType.CHAIR_STAND, ExerciseSessionStatus.COMPLETED);
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(mock(User.class)));

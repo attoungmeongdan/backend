@@ -52,6 +52,15 @@ public class PlankAnalyzer {
         return state.getPhase();
     }
 
+    public PlankPhase analyzeMissingLandmarks(PlankAnalysisState state) {
+        if (state.getPhase() == PlankPhase.HOLDING) {
+            state.confirmBroken(BROKEN_CONFIRMATION_FRAMES);
+        } else {
+            state.clearCandidates();
+        }
+        return state.getPhase();
+    }
+
     private void addSideMetrics(List<LandmarkDto> landmarks, boolean left,
                                 List<Double> bodyAngles, List<Double> legAngles,
                                 List<Double> elbowAngles) {

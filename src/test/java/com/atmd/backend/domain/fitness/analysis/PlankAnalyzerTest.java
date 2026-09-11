@@ -57,6 +57,20 @@ class PlankAnalyzerTest {
         assertThat(state.getPhase()).isEqualTo(PlankPhase.BROKEN);
     }
 
+    @Test
+    void breaksAfterFiveConsecutiveFramesWithMissingLandmarks() {
+        PlankAnalysisState state = holdingState();
+
+        for (int frame = 0; frame < 4; frame++) {
+            analyzer.analyzeMissingLandmarks(state);
+        }
+        assertThat(state.getPhase()).isEqualTo(PlankPhase.HOLDING);
+
+        analyzer.analyzeMissingLandmarks(state);
+
+        assertThat(state.getPhase()).isEqualTo(PlankPhase.BROKEN);
+    }
+
     private void repeat(PlankAnalysisState state, PlankMetrics metrics, int frames) {
         for (int frame = 0; frame < frames; frame++) {
             analyzer.analyze(state, metrics);

@@ -124,7 +124,7 @@ public class ExerciseSession extends BaseEntity {
             case SIT_UP -> new ExerciseSession(user, mode, exerciseType, MeasurementType.REPETITION,
                     EvaluationStandard.KSPO, timeLimitSeconds, "SIT_UP_V7", measurementGroupId);
             case PLANK -> new ExerciseSession(user, mode, exerciseType, MeasurementType.VALID_DURATION,
-                    EvaluationStandard.FITPLE, timeLimitSeconds, "PLANK_V2", measurementGroupId);
+                    EvaluationStandard.FITPLE, timeLimitSeconds, "PLANK_V3", measurementGroupId);
             default -> throw new IllegalArgumentException("Unsupported exercise: " + exerciseType);
         };
     }
