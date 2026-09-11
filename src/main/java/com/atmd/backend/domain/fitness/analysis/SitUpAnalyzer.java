@@ -16,11 +16,9 @@ public class SitUpAnalyzer {
     private static final double MIN_VISIBILITY = 0.6;
     private static final int CONFIRMATION_FRAMES = 3;
 
-    // SIT_UP_V3 provisional thresholds. Recalibrate with actual measurement data.
+    // SIT_UP_V7: count-only two-state thresholds.
     private static final double LYING_ANGLE_MIN = 145.0;
-    private static final double RISING_ANGLE_MAX = 135.0;
     private static final double UP_ANGLE_MAX = 115.0;
-    private static final double LOWERING_ANGLE_MIN = 120.0;
 
     private final PoseMetricCalculator metricCalculator;
 
@@ -43,7 +41,7 @@ public class SitUpAnalyzer {
         }
 
         boolean changed = state.confirm(target, CONFIRMATION_FRAMES);
-        if (changed && previous == SitUpPhase.LOWERING && state.getPhase() == SitUpPhase.LYING) {
+        if (changed && previous == SitUpPhase.LYING && state.getPhase() == SitUpPhase.UP) {
             state.incrementValidCount();
             return true;
         }
@@ -54,10 +52,9 @@ public class SitUpAnalyzer {
         double angle = metrics.trunkFlexionAngle();
         return switch (current) {
             case UNKNOWN -> angle >= LYING_ANGLE_MIN ? SitUpPhase.LYING : null;
-            case LYING -> angle <= RISING_ANGLE_MAX ? SitUpPhase.RISING : null;
-            case RISING -> angle <= UP_ANGLE_MAX ? SitUpPhase.UP : null;
-            case UP -> angle >= LOWERING_ANGLE_MIN ? SitUpPhase.LOWERING : null;
-            case LOWERING -> angle >= LYING_ANGLE_MIN ? SitUpPhase.LYING : null;
+            case LYING -> angle <= UP_ANGLE_MAX ? SitUpPhase.UP : null;
+            case UP -> angle >= LYING_ANGLE_MIN ? SitUpPhase.LYING : null;
+            case RISING, LOWERING -> null;
         };
     }
 
