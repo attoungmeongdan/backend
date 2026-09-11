@@ -53,20 +53,18 @@
 ### 📅 운동 캘린더 & 기록 관리
 - **날짜별 운동 기록 조회**
     - 최근 운동 현황 요약 제공
-- **이미지 관리**
-    - AWS S3 업로드 + CloudFront CDN 배포
 
 ---
 
 ## ⚙ 기술 스택
-|    파트    |                                                      기술                                                       |
-|:--------:|:-------------------------------------------------------------------------------------------------------------:|
-| BackEnd  | Java 17, Spring Boot 3.5.3, Spring Security, JPA, QueryDSL, WebSocket, OpenFeign, MapStruct, Flyway, AOP |
-| DataBase |                                          PostgreSQL 16 + pgvector, Redis 7                                          |
-|    AI    |                                  OpenAI API (gpt-4o-mini, text-embedding-3-small), RAG                                   |
-|  Infra   |                                    Docker, AWS EC2, AWS S3, CloudFront, SSM, CloudWatch                                     |
-|  CI/CD   |                                              GitHub Actions, Docker Hub                                               |
-|   etc.   |                                              Swagger, Prometheus, Notion, Discord                                              |
+|    파트    |                                                   기술                                                    |
+|:--------:|:-------------------------------------------------------------------------------------------------------:|
+| BackEnd  | Java 17, Spring Boot 3.5.3, Spring Security, OAuth2, JWT, JPA, WebSocket, OpenFeign, Flyway, AOP, P6Spy |
+| DataBase |                                    PostgreSQL 16 + pgvector, Redis 7                                    |
+|    AI    |                          OpenAI API (gpt-4o-mini, text-embedding-3-small), RAG                          |
+|  Infra   |                               Docker, Terraform, AWS EC2, SSM, CloudWatch                               |
+|  CI/CD   |                                       GitHub Actions, Docker Hub                                        |
+|   etc.   |                                        Swagger, Notion, Discord                                         |
 
 ---
 

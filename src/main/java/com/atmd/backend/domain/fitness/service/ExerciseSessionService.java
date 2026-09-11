@@ -472,7 +472,8 @@ public class ExerciseSessionService {
             }
             return Map.of(
                     "bodyAlignmentAngle", metrics.bodyAlignmentAngle(),
-                    "legAlignmentAngle", metrics.legAlignmentAngle()
+                    "legAlignmentAngle", metrics.legAlignmentAngle(),
+                    "elbowAngle", metrics.elbowAngle()
             );
         }
 

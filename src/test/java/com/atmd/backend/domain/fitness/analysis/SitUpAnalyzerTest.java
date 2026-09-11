@@ -17,9 +17,9 @@ class SitUpAnalyzerTest {
         repeat(state, 130);
         repeat(state, 90);
         assertThat(state.getPhase()).isEqualTo(SitUpPhase.UP);
-        assertThat(state.getValidCount()).isZero();
+        assertThat(state.getValidCount()).isEqualTo(1);
 
-        repeat(state, 120);
+        repeat(state, 142);
         repeat(state, 160);
 
         assertThat(state.getPhase()).isEqualTo(SitUpPhase.LYING);
@@ -31,12 +31,24 @@ class SitUpAnalyzerTest {
         SitUpAnalysisState state = new SitUpAnalysisState();
 
         repeat(state, 165);
-        repeat(state, 130);
-        repeat(state, 120);
+        repeat(state, 133);
+        repeat(state, 132);
         repeat(state, 160);
 
-        assertThat(state.getPhase()).isEqualTo(SitUpPhase.RISING);
+        assertThat(state.getPhase()).isEqualTo(SitUpPhase.LYING);
         assertThat(state.getValidCount()).isZero();
+    }
+
+    @Test
+    void countsWhenFastMovementSkipsIntermediatePhases() {
+        SitUpAnalysisState state = new SitUpAnalysisState();
+
+        repeat(state, 165);
+        repeat(state, 90);
+        repeat(state, 165);
+
+        assertThat(state.getPhase()).isEqualTo(SitUpPhase.LYING);
+        assertThat(state.getValidCount()).isEqualTo(1);
     }
 
     @Test
@@ -44,7 +56,7 @@ class SitUpAnalyzerTest {
         SitUpAnalysisState state = new SitUpAnalysisState();
 
         repeat(state, 146);
-        repeat(state, 130);
+        repeat(state, 133);
         repeat(state, 113);
         repeat(state, 122);
         repeat(state, 146);
