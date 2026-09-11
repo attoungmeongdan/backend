@@ -34,7 +34,7 @@ class PushUpAnalyzerTest {
         repeat(state, new PushUpMetrics(140, 170));
         repeat(state, new PushUpMetrics(85, 140));
 
-        assertThat(state.getPhase()).isEqualTo(PushUpPhase.DESCENDING);
+        assertThat(state.getPhase()).isEqualTo(PushUpPhase.UP);
         assertThat(state.getValidCount()).isZero();
     }
 

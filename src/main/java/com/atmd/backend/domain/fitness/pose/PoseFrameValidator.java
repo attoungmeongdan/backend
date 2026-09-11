@@ -29,7 +29,7 @@ public class PoseFrameValidator {
 
     private static final Set<Integer> PUSH_UP_REQUIRED = Set.of(11, 12, 13, 14, 15, 16, 23, 24, 27, 28);
     private static final Set<Integer> SIT_UP_REQUIRED = Set.of(11, 12, 23, 24, 25, 26);
-    private static final Set<Integer> PLANK_REQUIRED = Set.of(11, 12, 23, 24, 25, 26, 27, 28);
+    private static final Set<Integer> PLANK_REQUIRED = Set.of(11, 12, 13, 14, 15, 16, 23, 24, 25, 26, 27, 28);
 
     public ValidationResult validate(
             PoseFrameMessage frame,
@@ -90,19 +90,19 @@ public class PoseFrameValidator {
         boolean leftVisible = switch (exerciseType) {
             case PUSH_UP -> sideVisible(landmarks, 11, 13, 15, 23, 27);
             case SIT_UP -> sideVisible(landmarks, 11, 23, 25);
-            case PLANK -> sideVisible(landmarks, 11, 23, 25, 27);
+            case PLANK -> sideVisible(landmarks, 11, 13, 15, 23, 25, 27);
             default -> sideVisible(landmarks, 11, 23, 25, 27);
         };
         boolean rightVisible = switch (exerciseType) {
             case PUSH_UP -> sideVisible(landmarks, 12, 14, 16, 24, 28);
             case SIT_UP -> sideVisible(landmarks, 12, 24, 26);
-            case PLANK -> sideVisible(landmarks, 12, 24, 26, 28);
+            case PLANK -> sideVisible(landmarks, 12, 14, 16, 24, 26, 28);
             default -> sideVisible(landmarks, 12, 24, 26, 28);
         };
         int minimumVisible = switch (exerciseType) {
             case PUSH_UP -> 5;
             case SIT_UP -> 3;
-            case PLANK -> 4;
+            case PLANK -> 6;
             default -> 4;
         };
         return visibleRequired >= minimumVisible && (leftVisible || rightVisible);
