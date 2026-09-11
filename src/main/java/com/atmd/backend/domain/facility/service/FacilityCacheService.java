@@ -43,6 +43,10 @@ public class FacilityCacheService {
         }
     }
 
+    public void delete(Long userId) {
+        redisTemplate.delete(key(userId));
+    }
+
     private String key(Long userId) {
         return PREFIX + userId;
     }
