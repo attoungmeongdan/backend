@@ -8,6 +8,7 @@ import com.atmd.backend.domain.group.dto.response.GroupResponseDTO;
 import com.atmd.backend.domain.group.entity.Group;
 import com.atmd.backend.domain.group.entity.GroupUser;
 import com.atmd.backend.domain.group.exception.GroupErrorCode;
+import com.atmd.backend.domain.group.repository.GroupDailyWorkoutRecordRepository;
 import com.atmd.backend.domain.group.repository.GroupRepository;
 import com.atmd.backend.domain.group.repository.GroupUserRepository;
 import com.atmd.backend.domain.user.entity.User;
@@ -35,6 +36,7 @@ public class GroupService {
 
     private final GroupRepository groupRepository;
     private final GroupUserRepository groupUserRepository;
+    private final GroupDailyWorkoutRecordRepository groupDailyWorkoutRecordRepository;
     private final UserRepository userRepository;
 
     @Value("${app.frontend-base-url:https://www.atmd.cloud}")
@@ -126,6 +128,7 @@ public class GroupService {
         if (!group.isOwner(userId)) {
             throw new GeneralException(GroupErrorCode.ACCESS_DENIED);
         }
+        groupDailyWorkoutRecordRepository.deleteAllByGroupId(groupId);
         groupUserRepository.deleteAllByGroupId(groupId);
         groupRepository.delete(group);
     }
