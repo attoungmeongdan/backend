@@ -16,10 +16,6 @@ public class GroupCreateRequestDTO {
     @Size(max = 10)
     private String name;
 
-    @NotBlank
-    @Size(max = 200)
-    private String penalty;
-
     /**
      * 그룹 가용 최대 인원 (방장 포함, 2~5).
      * 2인은 무료(GENERAL), 3~5인은 유료(SUBSCRIBED, (maxMemberCount - 2) × 500원).

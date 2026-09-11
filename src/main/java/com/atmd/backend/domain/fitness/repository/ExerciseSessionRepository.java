@@ -111,4 +111,27 @@ public interface ExerciseSessionRepository extends JpaRepository<ExerciseSession
             LocalDateTime start,
             LocalDateTime end
     );
+
+    @Query("""
+            select e.measurementGroupId as measurementGroupId,
+                   max(e.completedAt) as completedAt
+            from ExerciseSession e
+            where e.user.id = :userId
+              and e.mode = :mode
+              and e.status = :status
+              and e.measurementGroupId is not null
+              and e.isDeleted = false
+            group by e.measurementGroupId
+            having count(distinct e.exerciseType) = 4
+               and max(e.completedAt) >= :start
+               and max(e.completedAt) < :end
+            order by max(e.completedAt) asc
+            """)
+    List<CompletedMeasurementGroupProjection> findCompletedMeasurementGroupsInPeriod(
+            @Param("userId") Long userId,
+            @Param("mode") ExerciseSessionMode mode,
+            @Param("status") ExerciseSessionStatus status,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end
+    );
 }

@@ -44,5 +44,12 @@ public class CalendarResponseDTO {
 
         @Schema(description = "운동 완료 종류 수", example = "3")
         private int exerciseCount;
+
+        @Schema(
+                description = "해당 날짜에 완료한 체력 측정 그룹 ID. 완료된 측정이 없으면 null",
+                example = "550e8400-e29b-41d4-a716-446655440000",
+                nullable = true
+        )
+        private String measurementGroupId;
     }
 }
