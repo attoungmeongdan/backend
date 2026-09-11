@@ -4,6 +4,7 @@ import com.atmd.backend.domain.fitness.enums.ExerciseType;
 import com.atmd.backend.domain.group.entity.Group;
 import com.atmd.backend.domain.group.entity.GroupUser;
 import com.atmd.backend.domain.group.repository.GroupDailyWorkoutRecordRepository;
+import com.atmd.backend.domain.group.repository.GroupRepository;
 import com.atmd.backend.domain.group.repository.GroupUserRepository;
 import org.junit.jupiter.api.Test;
 
@@ -18,11 +19,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class GroupWorkoutRecordServiceTest {
+    private final GroupRepository groupRepository = mock(GroupRepository.class);
     private final GroupUserRepository groupUserRepository = mock(GroupUserRepository.class);
     private final GroupDailyWorkoutRecordRepository recordRepository =
             mock(GroupDailyWorkoutRecordRepository.class);
     private final GroupWorkoutRecordService service =
-            new GroupWorkoutRecordService(groupUserRepository, recordRepository);
+            new GroupWorkoutRecordService(groupRepository, groupUserRepository, recordRepository);
 
     @Test
     void accumulatesSitUpCountForMembershipCreatedBeforeWorkout() {
