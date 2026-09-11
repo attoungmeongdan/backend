@@ -24,9 +24,9 @@ import lombok.NoArgsConstructor;
 public class Group extends BaseEntity {
 
     public static final int MAX_GROUPS_PER_USER = 5;
-    public static final int GENERAL_MAX_MEMBER_COUNT = 2;
-    public static final int SUBSCRIBED_MIN_MEMBER_COUNT = 2;
-    public static final int SUBSCRIBED_MAX_MEMBER_COUNT = 5;
+    public static final int MIN_MEMBER_COUNT = 2;
+    public static final int MAX_MEMBER_COUNT = 5;
+    public static final int FREE_MEMBER_THRESHOLD = 2;
     public static final int PRICE_PER_MEMBER = 500;
 
     @Id
@@ -75,44 +75,34 @@ public class Group extends BaseEntity {
         this.price = price;
     }
 
-    public static Group createFirst(
-            User owner,
-            String name,
-            String inviteCode,
-            String penalty
-    ) {
-        return Group.builder()
-                .owner(owner)
-                .name(name)
-                .membership(GroupMembership.GENERAL)
-                .inviteCode(inviteCode)
-                .penalty(penalty)
-                .maxMemberCount(GENERAL_MAX_MEMBER_COUNT)
-                .price(0)
-                .build();
-    }
-
-    public static Group createSubscribed(
+    public static Group create(
             User owner,
             String name,
             String inviteCode,
             String penalty,
             int maxMemberCount
     ) {
+        GroupMembership membership = maxMemberCount <= FREE_MEMBER_THRESHOLD
+                ? GroupMembership.GENERAL
+                : GroupMembership.SUBSCRIBED;
+        int price = calculatePrice(maxMemberCount);
         return Group.builder()
                 .owner(owner)
                 .name(name)
-                .membership(GroupMembership.SUBSCRIBED)
+                .membership(membership)
                 .inviteCode(inviteCode)
                 .penalty(penalty)
                 .maxMemberCount(maxMemberCount)
-                .price(maxMemberCount * PRICE_PER_MEMBER)
+                .price(price)
                 .build();
     }
 
-    public static boolean isValidSubscribedCapacity(int memberCount) {
-        return memberCount >= SUBSCRIBED_MIN_MEMBER_COUNT
-                && memberCount <= SUBSCRIBED_MAX_MEMBER_COUNT;
+    public static int calculatePrice(int maxMemberCount) {
+        return Math.max(0, maxMemberCount - FREE_MEMBER_THRESHOLD) * PRICE_PER_MEMBER;
+    }
+
+    public static boolean isValidMemberCount(int memberCount) {
+        return memberCount >= MIN_MEMBER_COUNT && memberCount <= MAX_MEMBER_COUNT;
     }
 
     public boolean isOwner(Long userId) {

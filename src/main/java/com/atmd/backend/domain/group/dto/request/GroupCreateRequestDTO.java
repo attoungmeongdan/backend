@@ -1,6 +1,9 @@
 package com.atmd.backend.domain.group.dto.request;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -18,8 +21,11 @@ public class GroupCreateRequestDTO {
     private String penalty;
 
     /**
-     * 첫 그룹이 아닌 경우(SUBSCRIBED)에만 사용. 2~5 사이 값.
-     * 첫 그룹은 서버에서 2로 고정하므로 null 허용.
+     * 그룹 가용 최대 인원 (방장 포함, 2~5).
+     * 2인은 무료(GENERAL), 3~5인은 유료(SUBSCRIBED, (maxMemberCount - 2) × 500원).
      */
+    @NotNull
+    @Min(2)
+    @Max(5)
     private Integer maxMemberCount;
 }
