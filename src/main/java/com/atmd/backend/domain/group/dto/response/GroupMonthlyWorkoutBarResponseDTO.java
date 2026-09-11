@@ -13,5 +13,6 @@ public class GroupMonthlyWorkoutBarResponseDTO {
     private Long groupId;
     private String groupName;
     private YearMonth yearMonth;
-    private List<GroupMemberWorkoutBarResponseDTO> members;
+    private int daysInMonth;
+    private List<GroupMonthlyMemberSummaryDTO> members;
 }
