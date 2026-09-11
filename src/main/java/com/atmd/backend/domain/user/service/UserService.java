@@ -1,5 +1,6 @@
 package com.atmd.backend.domain.user.service;
 
+import com.atmd.backend.domain.facility.service.FacilityCacheService;
 import com.atmd.backend.domain.fitness.repository.ExerciseSessionRepository;
 import com.atmd.backend.domain.user.dto.request.UserProfileUpdateRequest;
 import com.atmd.backend.domain.user.dto.response.UserProfileResponseDTO;
@@ -22,6 +23,7 @@ public class UserService {
     private final ExerciseSessionRepository exerciseSessionRepository;
     private final JwtService jwtService;
     private final CookieProvider cookieProvider;
+    private final FacilityCacheService facilityCacheService;
 
     @Transactional(readOnly = true)
     public UserProfileResponseDTO getProfile(Long userId) {
@@ -45,6 +47,7 @@ public class UserService {
         exerciseSessionRepository.deleteAllByUserId(userId);
         userRepository.delete(user);
         jwtService.deleteRefreshToken(userId);
+        facilityCacheService.delete(userId);
         response.addHeader("Set-Cookie", cookieProvider.expireRefreshTokenCookie().toString());
     }
 
