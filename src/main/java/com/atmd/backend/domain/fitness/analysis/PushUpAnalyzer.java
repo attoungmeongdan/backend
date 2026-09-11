@@ -15,9 +15,7 @@ public class PushUpAnalyzer {
     private static final double MIN_VISIBILITY = 0.6;
     private static final int CONFIRMATION_FRAMES = 3;
     private static final double UP_ELBOW_MIN = 150;
-    private static final double DESCENDING_ELBOW_MAX = 145;
     private static final double DOWN_ELBOW_MAX = 105;
-    private static final double ASCENDING_ELBOW_MIN = 115;
     private static final double BODY_ALIGNMENT_MIN = 160;
 
     private final PoseMetricCalculator metricCalculator;
@@ -41,7 +39,7 @@ public class PushUpAnalyzer {
             return false;
         }
         boolean changed = state.confirm(target, CONFIRMATION_FRAMES);
-        if (changed && previous == PushUpPhase.ASCENDING && state.getPhase() == PushUpPhase.UP) {
+        if (changed && previous == PushUpPhase.DOWN && state.getPhase() == PushUpPhase.UP) {
             state.incrementValidCount();
             return true;
         }
@@ -52,10 +50,9 @@ public class PushUpAnalyzer {
         boolean aligned = metrics.bodyAlignmentAngle() >= BODY_ALIGNMENT_MIN;
         return switch (current) {
             case UNKNOWN -> aligned && metrics.elbowAngle() >= UP_ELBOW_MIN ? PushUpPhase.UP : null;
-            case UP -> metrics.elbowAngle() <= DESCENDING_ELBOW_MAX ? PushUpPhase.DESCENDING : null;
-            case DESCENDING -> aligned && metrics.elbowAngle() <= DOWN_ELBOW_MAX ? PushUpPhase.DOWN : null;
-            case DOWN -> metrics.elbowAngle() >= ASCENDING_ELBOW_MIN ? PushUpPhase.ASCENDING : null;
-            case ASCENDING -> aligned && metrics.elbowAngle() >= UP_ELBOW_MIN ? PushUpPhase.UP : null;
+            case UP -> aligned && metrics.elbowAngle() <= DOWN_ELBOW_MAX ? PushUpPhase.DOWN : null;
+            case DOWN -> aligned && metrics.elbowAngle() >= UP_ELBOW_MIN ? PushUpPhase.UP : null;
+            case DESCENDING, ASCENDING -> null;
         };
     }
 

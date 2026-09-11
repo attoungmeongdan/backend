@@ -13,10 +13,10 @@ class PlankAnalyzerTest {
     void startsHoldingAfterThreeValidFrames() {
         PlankAnalysisState state = new PlankAnalysisState();
 
-        repeat(state, new PlankMetrics(170, 175), 2);
+        repeat(state, new PlankMetrics(170, 175, 90), 2);
         assertThat(state.getPhase()).isEqualTo(PlankPhase.POSITIONING);
 
-        analyzer.analyze(state, new PlankMetrics(170, 175));
+        analyzer.analyze(state, new PlankMetrics(170, 175, 90));
         assertThat(state.getPhase()).isEqualTo(PlankPhase.HOLDING);
     }
 
@@ -24,10 +24,10 @@ class PlankAnalyzerTest {
     void breaksAfterFiveConsecutiveInvalidFrames() {
         PlankAnalysisState state = holdingState();
 
-        repeat(state, new PlankMetrics(145, 170), 4);
+        repeat(state, new PlankMetrics(145, 170, 90), 4);
         assertThat(state.getPhase()).isEqualTo(PlankPhase.HOLDING);
 
-        analyzer.analyze(state, new PlankMetrics(145, 170));
+        analyzer.analyze(state, new PlankMetrics(145, 170, 90));
         assertThat(state.getPhase()).isEqualTo(PlankPhase.BROKEN);
     }
 
@@ -35,17 +35,26 @@ class PlankAnalyzerTest {
     void transientInvalidFrameDoesNotBreakHolding() {
         PlankAnalysisState state = holdingState();
 
-        repeat(state, new PlankMetrics(145, 170), 4);
-        analyzer.analyze(state, new PlankMetrics(170, 170));
-        repeat(state, new PlankMetrics(145, 170), 4);
+        repeat(state, new PlankMetrics(145, 170, 90), 4);
+        analyzer.analyze(state, new PlankMetrics(170, 170, 90));
+        repeat(state, new PlankMetrics(145, 170, 90), 4);
 
         assertThat(state.getPhase()).isEqualTo(PlankPhase.HOLDING);
     }
 
     private PlankAnalysisState holdingState() {
         PlankAnalysisState state = new PlankAnalysisState();
-        repeat(state, new PlankMetrics(170, 170), 3);
+        repeat(state, new PlankMetrics(170, 170, 90), 3);
         return state;
+    }
+
+    @Test
+    void breaksWhenElbowIsExtendedBeyondMaximumAngle() {
+        PlankAnalysisState state = holdingState();
+
+        repeat(state, new PlankMetrics(170, 170, 131), 5);
+
+        assertThat(state.getPhase()).isEqualTo(PlankPhase.BROKEN);
     }
 
     private void repeat(PlankAnalysisState state, PlankMetrics metrics, int frames) {
