@@ -28,7 +28,8 @@ public class CalendarController {
 
     @Operation(
             summary = "월별 캘린더 조회",
-            description = "로그인한 유저의 특정 연월(year, month)에 해당하는 운동 기록과 달성률을 반환합니다."
+            description = "로그인한 유저의 특정 연월(year, month)에 해당하는 운동 기록, 달성률, "
+                    + "날짜별 완료 측정 그룹 ID를 반환합니다."
     )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "캘린더 조회 성공"),

@@ -7,6 +7,7 @@ import com.atmd.backend.domain.fitness.entity.ExerciseSession;
 import com.atmd.backend.domain.fitness.enums.ExerciseSessionMode;
 import com.atmd.backend.domain.fitness.enums.ExerciseSessionStatus;
 import com.atmd.backend.domain.fitness.enums.ExerciseType;
+import com.atmd.backend.domain.fitness.repository.CompletedMeasurementGroupProjection;
 import com.atmd.backend.domain.fitness.repository.ExerciseSessionRepository;
 import com.atmd.backend.global.common.exception.GeneralException;
 import lombok.RequiredArgsConstructor;
@@ -89,6 +90,24 @@ public class CalendarService {
                         exerciseCountByDate.put(date, exerciseTypes.size())
         );
 
+        Map<LocalDate, CompletedMeasurementGroupProjection> measurementByDate =
+                exerciseSessionRepository.findCompletedMeasurementGroupsInPeriod(
+                                userId,
+                                ExerciseSessionMode.MEASUREMENT,
+                                ExerciseSessionStatus.COMPLETED,
+                                startDateTime,
+                                endDateTime
+                        ).stream()
+                        .filter(measurement -> !isCurrentMonth
+                                || !measurement.getCompletedAt().toLocalDate().isAfter(today))
+                        .collect(Collectors.toMap(
+                                measurement -> measurement.getCompletedAt().toLocalDate(),
+                                measurement -> measurement,
+                                (first, second) -> first.getCompletedAt().isAfter(second.getCompletedAt())
+                                        ? first
+                                        : second
+                        ));
+
         // 운동을 한 번이라도 한 날짜 수
         int completedDays = (int) exerciseCountByDate.values().stream()
                 .filter(count -> count > 0)
@@ -107,11 +126,15 @@ public class CalendarService {
         for (int day = 1; day <= yearMonth.lengthOfMonth(); day++) {
             LocalDate date = yearMonth.atDay(day);
             int exerciseCount = exerciseCountByDate.getOrDefault(date, 0);
+            CompletedMeasurementGroupProjection measurement = measurementByDate.get(date);
 
             dailyRecords.add(
                     CalendarResponseDTO.DailyRecord.builder()
                             .date(date)
                             .exerciseCount(exerciseCount)
+                            .measurementGroupId(
+                                    measurement == null ? null : measurement.getMeasurementGroupId()
+                            )
                             .build()
             );
         }
