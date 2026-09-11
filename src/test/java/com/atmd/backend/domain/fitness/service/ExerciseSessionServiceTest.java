@@ -14,6 +14,7 @@ import com.atmd.backend.domain.fitness.pose.PoseFrameValidator;
 import com.atmd.backend.domain.fitness.repository.ExerciseSessionRepository;
 import com.atmd.backend.domain.user.repository.UserRepository;
 import com.atmd.backend.domain.user.entity.User;
+import com.atmd.backend.domain.group.service.GroupWorkoutRecordService;
 import com.atmd.backend.global.common.exception.GeneralException;
 import org.junit.jupiter.api.Test;
 
@@ -73,7 +74,8 @@ class ExerciseSessionServiceTest {
                 mock(ChairStandAnalyzer.class),
                 mock(PushUpAnalyzer.class),
                 mock(SitUpAnalyzer.class),
-                mock(PlankAnalyzer.class)
+                mock(PlankAnalyzer.class),
+                mock(GroupWorkoutRecordService.class)
         );
     }
 }
