@@ -33,6 +33,14 @@ public class SitUpAnalyzer {
     }
 
     public boolean analyzeAndCount(SitUpAnalysisState state, SitUpMetrics metrics) {
+        return analyzeAndCount(state, metrics, CONFIRMATION_FRAMES);
+    }
+
+    public boolean analyzeAndCount(
+            SitUpAnalysisState state,
+            SitUpMetrics metrics,
+            int confirmationFrames
+    ) {
         SitUpPhase previous = state.getPhase();
         SitUpPhase target = targetPhase(previous, metrics);
         if (target == null) {
@@ -40,7 +48,7 @@ public class SitUpAnalyzer {
             return false;
         }
 
-        boolean changed = state.confirm(target, CONFIRMATION_FRAMES);
+        boolean changed = state.confirm(target, confirmationFrames);
         if (changed && previous == SitUpPhase.LYING && state.getPhase() == SitUpPhase.UP) {
             state.incrementValidCount();
             return true;

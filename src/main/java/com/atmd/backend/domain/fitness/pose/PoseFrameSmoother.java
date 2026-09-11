@@ -12,8 +12,16 @@ public class PoseFrameSmoother {
     private static final int WINDOW_SIZE = 5;
 
     public List<LandmarkDto> addAndSmooth(Deque<List<LandmarkDto>> frames, List<LandmarkDto> current) {
+        return addAndSmooth(frames, current, WINDOW_SIZE);
+    }
+
+    public List<LandmarkDto> addAndSmooth(
+            Deque<List<LandmarkDto>> frames,
+            List<LandmarkDto> current,
+            int windowSize
+    ) {
         frames.addLast(List.copyOf(current));
-        while (frames.size() > WINDOW_SIZE) {
+        while (frames.size() > windowSize) {
             frames.removeFirst();
         }
 

@@ -39,18 +39,30 @@ public class ChairStandAnalyzer {
     }
 
     public boolean analyze(ChairStandAnalysisState state, ChairStandMetrics metrics) {
+        return analyze(state, metrics, CONFIRMATION_FRAMES);
+    }
+
+    public boolean analyze(ChairStandAnalysisState state, ChairStandMetrics metrics, int confirmationFrames) {
         ChairStandPhase target = targetPhase(state.getPhase(), metrics);
         if (target == null) {
             state.clearCandidate();
             return false;
         }
 
-        return state.confirm(target, CONFIRMATION_FRAMES);
+        return state.confirm(target, confirmationFrames);
     }
 
     public boolean analyzeAndCount(ChairStandAnalysisState state, ChairStandMetrics metrics) {
+        return analyzeAndCount(state, metrics, CONFIRMATION_FRAMES);
+    }
+
+    public boolean analyzeAndCount(
+            ChairStandAnalysisState state,
+            ChairStandMetrics metrics,
+            int confirmationFrames
+    ) {
         ChairStandPhase previous = state.getPhase();
-        boolean changed = analyze(state, metrics);
+        boolean changed = analyze(state, metrics, confirmationFrames);
         if (changed && previous == ChairStandPhase.SITTING && state.getPhase() == ChairStandPhase.STANDING) {
             state.incrementValidCount();
             return true;

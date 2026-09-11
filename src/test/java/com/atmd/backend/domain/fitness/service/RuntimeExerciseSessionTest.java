@@ -1,6 +1,7 @@
 package com.atmd.backend.domain.fitness.service;
 
 import com.atmd.backend.domain.fitness.enums.ExerciseType;
+import com.atmd.backend.domain.fitness.enums.ExerciseSessionMode;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -49,10 +50,38 @@ class RuntimeExerciseSessionTest {
                 1L,
                 1L,
                 ExerciseType.PLANK,
+                ExerciseSessionMode.MEASUREMENT,
                 "ticket",
                 now.plusSeconds(60),
                 0,
                 15
         );
+    }
+
+    @Test
+    void measurementRepetitionUsesResponsiveFramePolicy() {
+        Instant now = Instant.parse("2026-09-09T00:00:00Z");
+        RuntimeExerciseSession session = new RuntimeExerciseSession(
+                1L, 1L, ExerciseType.PUSH_UP, ExerciseSessionMode.MEASUREMENT,
+                "ticket", now.plusSeconds(60), 60, 15
+        );
+
+        assertThat(session.smoothingWindowSize()).isEqualTo(3);
+        assertThat(session.confirmationFrames()).isEqualTo(2);
+    }
+
+    @Test
+    void workoutAndPlankKeepStrictFramePolicy() {
+        Instant now = Instant.parse("2026-09-09T00:00:00Z");
+        RuntimeExerciseSession workout = new RuntimeExerciseSession(
+                1L, 1L, ExerciseType.PUSH_UP, ExerciseSessionMode.WORKOUT,
+                "ticket", now.plusSeconds(60), 0, 15
+        );
+        RuntimeExerciseSession plankMeasurement = session(now);
+
+        assertThat(workout.smoothingWindowSize()).isEqualTo(5);
+        assertThat(workout.confirmationFrames()).isEqualTo(3);
+        assertThat(plankMeasurement.smoothingWindowSize()).isEqualTo(5);
+        assertThat(plankMeasurement.confirmationFrames()).isEqualTo(3);
     }
 }

@@ -27,4 +27,12 @@ public record PostureFeedback(
                 "플랭크 자세가 무너져 측정을 종료했습니다."
         );
     }
+
+    public static PostureFeedback plankLandmarksLost() {
+        return new PostureFeedback(
+                "PLANK_LANDMARKS_LOST",
+                "ERROR",
+                "필수 관절을 확인할 수 없어 플랭크 측정을 종료했습니다."
+        );
+    }
 }
