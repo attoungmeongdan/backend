@@ -118,6 +118,7 @@ public class ExerciseSessionService {
                         session.getId(),
                         userId,
                         session.getExerciseType(),
+                        session.getMode(),
                         ticket,
                         Instant.now().plusSeconds(SOCKET_TICKET_VALID_SECONDS),
                         session.getTimeLimitSeconds(),
@@ -166,13 +167,10 @@ public class ExerciseSessionService {
             );
             if (!validation.valid()) {
                 if (validation.positionRequired()) {
-                    return response(
-                            "ANALYSIS_RESULT",
-                            runtime,
-                            frame.sequence(),
-                            Map.of(),
-                            List.of(PostureFeedback.positioningRequired(runtime.getExerciseType().name()))
-                    );
+                    if (runtime.getExerciseType() == ExerciseType.PLANK) {
+                        runtime.acceptFrame(frame.sequence(), frame.timestamp(), Instant.now());
+                    }
+                    return handlePositionRequired(runtime, frame.sequence());
                 }
                 throw new IllegalArgumentException(validation.code() + ": " + validation.message());
             }
@@ -191,15 +189,13 @@ public class ExerciseSessionService {
             }
 
             List<com.atmd.backend.domain.fitness.dto.request.LandmarkDto> smoothed =
-                    frameSmoother.addAndSmooth(runtime.getRecentFrames(), frame.landmarks());
+                    frameSmoother.addAndSmooth(
+                            runtime.getRecentFrames(),
+                            frame.landmarks(),
+                            runtime.smoothingWindowSize()
+                    );
             if (!frameValidator.hasRequiredVisibility(smoothed, runtime.getExerciseType())) {
-                return response(
-                        "ANALYSIS_RESULT",
-                        runtime,
-                        frame.sequence(),
-                        Map.of(),
-                        List.of(PostureFeedback.positioningRequired(runtime.getExerciseType().name()))
-                );
+                return handlePositionRequired(runtime, frame.sequence());
             }
             Map<String, Double> metrics = analyze(runtime, smoothed);
 
@@ -307,6 +303,29 @@ public class ExerciseSessionService {
                 runtime.validDurationMs(Instant.now()),
                 metrics,
                 feedback
+        );
+    }
+
+    private FrameAnalysisResponse handlePositionRequired(RuntimeExerciseSession runtime, long sequence) {
+        if (runtime.getExerciseType() == ExerciseType.PLANK
+                && plankAnalyzer.analyzeMissingLandmarks(runtime.getPlankAnalysisState()) == PlankPhase.BROKEN) {
+            Instant now = Instant.now();
+            runtime.stopPlankHolding(now);
+            completeRuntime(runtime, ExerciseSessionStatus.COMPLETED, now);
+            return response(
+                    "SESSION_COMPLETED",
+                    runtime,
+                    sequence,
+                    Map.of(),
+                    List.of(PostureFeedback.plankLandmarksLost())
+            );
+        }
+        return response(
+                "ANALYSIS_RESULT",
+                runtime,
+                sequence,
+                Map.of(),
+                List.of(PostureFeedback.positioningRequired(runtime.getExerciseType().name()))
         );
     }
 
@@ -446,7 +465,9 @@ public class ExerciseSessionService {
     ) {
         if (runtime.getExerciseType() == ExerciseType.PUSH_UP) {
             PushUpMetrics metrics = pushUpAnalyzer.calculateMetrics(landmarks);
-            pushUpAnalyzer.analyzeAndCount(runtime.getPushUpAnalysisState(), metrics);
+            pushUpAnalyzer.analyzeAndCount(
+                    runtime.getPushUpAnalysisState(), metrics, runtime.confirmationFrames()
+            );
             return Map.of(
                     "elbowAngle", metrics.elbowAngle(),
                     "bodyAlignmentAngle", metrics.bodyAlignmentAngle()
@@ -455,7 +476,9 @@ public class ExerciseSessionService {
 
         if (runtime.getExerciseType() == ExerciseType.SIT_UP) {
             SitUpMetrics metrics = sitUpAnalyzer.calculateMetrics(landmarks);
-            sitUpAnalyzer.analyzeAndCount(runtime.getSitUpAnalysisState(), metrics);
+            sitUpAnalyzer.analyzeAndCount(
+                    runtime.getSitUpAnalysisState(), metrics, runtime.confirmationFrames()
+            );
             return Map.of("trunkFlexionAngle", metrics.trunkFlexionAngle());
         }
 
@@ -478,7 +501,9 @@ public class ExerciseSessionService {
         }
 
         ChairStandMetrics metrics = chairStandAnalyzer.calculateMetrics(landmarks);
-        chairStandAnalyzer.analyzeAndCount(runtime.getAnalysisState(), metrics);
+        chairStandAnalyzer.analyzeAndCount(
+                runtime.getAnalysisState(), metrics, runtime.confirmationFrames()
+        );
         return Map.of(
                 "kneeAngle", metrics.kneeAngle(),
                 "hipAngle", metrics.hipAngle()

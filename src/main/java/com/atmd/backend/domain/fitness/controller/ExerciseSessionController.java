@@ -79,7 +79,7 @@ public class ExerciseSessionController {
         return ResponseEntity.ok(ApiResponse.success(measurementFlowService.getTodayProgress(SecurityUtil.getCurrentUserId())));
     }
 
-    @Operation(summary = "체력 측정 이어서 하기", description = "중단된 측정 그룹에서 아직 완료하지 않은 다음 운동 세션을 생성합니다. 기존 측정 결과와 측정 그룹 ID는 유지됩니다.")
+    @Operation(summary = "체력 측정 이어서 하기", description = "기존 측정 그룹 ID와 완료 결과를 유지한 채 다음 측정 세션을 생성합니다. 중단되어 EXPIRED된 운동은 완료로 보지 않으므로 동일 운동의 새 세션부터 다시 시작합니다.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "다음 측정 세션 생성 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증되지 않은 요청"),

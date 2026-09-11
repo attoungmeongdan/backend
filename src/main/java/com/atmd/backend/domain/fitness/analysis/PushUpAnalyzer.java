@@ -32,13 +32,21 @@ public class PushUpAnalyzer {
     }
 
     public boolean analyzeAndCount(PushUpAnalysisState state, PushUpMetrics metrics) {
+        return analyzeAndCount(state, metrics, CONFIRMATION_FRAMES);
+    }
+
+    public boolean analyzeAndCount(
+            PushUpAnalysisState state,
+            PushUpMetrics metrics,
+            int confirmationFrames
+    ) {
         PushUpPhase previous = state.getPhase();
         PushUpPhase target = targetPhase(previous, metrics);
         if (target == null) {
             state.clearCandidate();
             return false;
         }
-        boolean changed = state.confirm(target, CONFIRMATION_FRAMES);
+        boolean changed = state.confirm(target, confirmationFrames);
         if (changed && previous == PushUpPhase.DOWN && state.getPhase() == PushUpPhase.UP) {
             state.incrementValidCount();
             return true;

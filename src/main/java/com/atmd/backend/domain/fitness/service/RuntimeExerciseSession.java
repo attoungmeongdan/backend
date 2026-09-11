@@ -6,6 +6,7 @@ import com.atmd.backend.domain.fitness.analysis.SitUpAnalysisState;
 import com.atmd.backend.domain.fitness.analysis.PlankAnalysisState;
 import com.atmd.backend.domain.fitness.dto.request.LandmarkDto;
 import com.atmd.backend.domain.fitness.enums.ExerciseType;
+import com.atmd.backend.domain.fitness.enums.ExerciseSessionMode;
 import lombok.Getter;
 
 import java.time.Instant;
@@ -18,6 +19,7 @@ class RuntimeExerciseSession {
     private final Long sessionId;
     private final Long userId;
     private final ExerciseType exerciseType;
+    private final ExerciseSessionMode mode;
     private final String socketTicket;
     private final Instant ticketExpiresAt;
     private final int timeLimitSeconds;
@@ -42,6 +44,7 @@ class RuntimeExerciseSession {
             Long sessionId,
             Long userId,
             ExerciseType exerciseType,
+            ExerciseSessionMode mode,
             String socketTicket,
             Instant ticketExpiresAt,
             int timeLimitSeconds,
@@ -50,10 +53,19 @@ class RuntimeExerciseSession {
         this.sessionId = sessionId;
         this.userId = userId;
         this.exerciseType = exerciseType;
+        this.mode = mode;
         this.socketTicket = socketTicket;
         this.ticketExpiresAt = ticketExpiresAt;
         this.timeLimitSeconds = timeLimitSeconds;
         this.idleTimeoutSeconds = idleTimeoutSeconds;
+    }
+
+    int smoothingWindowSize() {
+        return exerciseType != ExerciseType.PLANK && mode == ExerciseSessionMode.MEASUREMENT ? 3 : 5;
+    }
+
+    int confirmationFrames() {
+        return exerciseType != ExerciseType.PLANK && mode == ExerciseSessionMode.MEASUREMENT ? 2 : 3;
     }
 
     boolean reserveTicket(String ticket, Instant now) {
