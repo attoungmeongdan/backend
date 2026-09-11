@@ -7,8 +7,60 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.util.List;
 
 public interface GroupDailyWorkoutRecordRepository extends JpaRepository<GroupDailyWorkoutRecord, Long> {
+
+    @Query(value = """
+            SELECT
+                u.id AS userId,
+                u.nickname AS nickname,
+                (u.id = g.owner_id) AS isOwner,
+                COALESCE(r.chair_stand_count, 0) AS chairStandCount,
+                COALESCE(r.push_up_count, 0) AS pushUpCount,
+                COALESCE(r.sit_up_count, 0) AS sitUpCount,
+                COALESCE(r.plank_duration_ms, 0) AS plankDurationMs
+            FROM group_users gu
+            JOIN users u ON u.id = gu.user_id
+            JOIN groups g ON g.id = gu.group_id
+            LEFT JOIN group_daily_workout_records r
+                ON r.group_id = gu.group_id
+               AND r.user_id = gu.user_id
+               AND r.workout_date = :workoutDate
+            WHERE gu.group_id = :groupId
+            ORDER BY u.id
+            """, nativeQuery = true)
+    List<GroupMemberWorkoutAggregateProjection> aggregateByGroupAndDate(
+            @Param("groupId") Long groupId,
+            @Param("workoutDate") LocalDate workoutDate
+    );
+
+    @Query(value = """
+            SELECT
+                u.id AS userId,
+                u.nickname AS nickname,
+                (u.id = g.owner_id) AS isOwner,
+                COALESCE(SUM(r.chair_stand_count), 0) AS chairStandCount,
+                COALESCE(SUM(r.push_up_count), 0) AS pushUpCount,
+                COALESCE(SUM(r.sit_up_count), 0) AS sitUpCount,
+                COALESCE(SUM(r.plank_duration_ms), 0) AS plankDurationMs
+            FROM group_users gu
+            JOIN users u ON u.id = gu.user_id
+            JOIN groups g ON g.id = gu.group_id
+            LEFT JOIN group_daily_workout_records r
+                ON r.group_id = gu.group_id
+               AND r.user_id = gu.user_id
+               AND r.workout_date >= :startDate
+               AND r.workout_date <  :endDateExclusive
+            WHERE gu.group_id = :groupId
+            GROUP BY u.id, u.nickname, g.owner_id
+            ORDER BY u.id
+            """, nativeQuery = true)
+    List<GroupMemberWorkoutAggregateProjection> aggregateByGroupAndDateRange(
+            @Param("groupId") Long groupId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDateExclusive") LocalDate endDateExclusive
+    );
 
     @Modifying
     @Query(value = """

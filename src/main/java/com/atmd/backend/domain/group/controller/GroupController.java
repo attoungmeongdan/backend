@@ -1,11 +1,14 @@
 package com.atmd.backend.domain.group.controller;
 
 import com.atmd.backend.domain.group.dto.request.GroupCreateRequestDTO;
+import com.atmd.backend.domain.group.dto.response.GroupDailyWorkoutBarResponseDTO;
 import com.atmd.backend.domain.group.dto.response.GroupInviteLinkResponseDTO;
 import com.atmd.backend.domain.group.dto.response.GroupJoinResponseDTO;
 import com.atmd.backend.domain.group.dto.response.GroupMemberResponseDTO;
+import com.atmd.backend.domain.group.dto.response.GroupMonthlyWorkoutBarResponseDTO;
 import com.atmd.backend.domain.group.dto.response.GroupResponseDTO;
 import com.atmd.backend.domain.group.service.GroupService;
+import com.atmd.backend.domain.group.service.GroupWorkoutRecordService;
 import com.atmd.backend.global.auth.util.SecurityUtil;
 import com.atmd.backend.global.common.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -13,9 +16,12 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 
 @Tag(name = "Group", description = "그룹 API")
@@ -25,6 +31,7 @@ import java.util.List;
 public class GroupController {
 
     private final GroupService groupService;
+    private final GroupWorkoutRecordService groupWorkoutRecordService;
 
     @Operation(
             summary = "그룹 생성",
@@ -107,5 +114,41 @@ public class GroupController {
     public ResponseEntity<ApiResponse<Void>> leaveGroup(@PathVariable Long groupId) {
         groupService.leaveGroup(groupId, SecurityUtil.getCurrentUserId());
         return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    @Operation(
+            summary = "그룹 일별 운동량 조회 (바 차트용)",
+            description = """
+                    특정 날짜(기본값: 오늘, Asia/Seoul) 기준으로 그룹에 소속된 모든 멤버의
+                    운동별(CHAIR_STAND / PUSH_UP / SIT_UP / PLANK) 실행량을 반환합니다.
+                    운동 기록이 없는 멤버는 0으로 채워져 함께 반환됩니다.
+                    """
+    )
+    @GetMapping("/{groupId}/workout-records/daily")
+    public ResponseEntity<ApiResponse<GroupDailyWorkoutBarResponseDTO>> getDailyWorkoutBar(
+            @PathVariable Long groupId,
+            @Parameter(description = "조회 날짜 (yyyy-MM-dd). 미지정 시 오늘 기준.")
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return ResponseEntity.ok(ApiResponse.success(
+                groupWorkoutRecordService.getDailyBar(groupId, SecurityUtil.getCurrentUserId(), date)));
+    }
+
+    @Operation(
+            summary = "그룹 월별 운동량 조회 (바 차트용)",
+            description = """
+                    특정 월(기본값: 이번 달, Asia/Seoul) 기준으로 그룹에 소속된 모든 멤버의
+                    운동별(CHAIR_STAND / PUSH_UP / SIT_UP / PLANK) 누적 실행량을 반환합니다.
+                    운동 기록이 없는 멤버는 0으로 채워져 함께 반환됩니다.
+                    """
+    )
+    @GetMapping("/{groupId}/workout-records/monthly")
+    public ResponseEntity<ApiResponse<GroupMonthlyWorkoutBarResponseDTO>> getMonthlyWorkoutBar(
+            @PathVariable Long groupId,
+            @Parameter(description = "조회 연월 (yyyy-MM). 미지정 시 이번 달 기준.")
+            @RequestParam(required = false)
+            @DateTimeFormat(pattern = "yyyy-MM") YearMonth yearMonth) {
+        return ResponseEntity.ok(ApiResponse.success(
+                groupWorkoutRecordService.getMonthlyBar(groupId, SecurityUtil.getCurrentUserId(), yearMonth)));
     }
 }
