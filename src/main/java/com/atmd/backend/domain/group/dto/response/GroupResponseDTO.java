@@ -12,7 +12,6 @@ public class GroupResponseDTO {
     private Long id;
     private String name;
     private GroupMembership membership;
-    private String penalty;
     private int maxMemberCount;
     private long currentMemberCount;
     private int price;
@@ -24,7 +23,6 @@ public class GroupResponseDTO {
                 .id(group.getId())
                 .name(group.getName())
                 .membership(group.getMembership())
-                .penalty(group.getPenalty())
                 .maxMemberCount(group.getMaxMemberCount())
                 .currentMemberCount(currentMemberCount)
                 .price(group.getPrice())
