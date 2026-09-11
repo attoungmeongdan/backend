@@ -123,10 +123,13 @@ public class GroupWorkoutRecordService {
                     membership, ownerId, userItems, daysInMonth));
         }
 
-        summaries.sort(Comparator
-                .comparingDouble(GroupMonthlyMemberSummaryDTO::getExecutionRate).reversed()
-                .thenComparingInt(GroupMonthlyMemberSummaryDTO::getTotalExerciseTypes).reversed()
-                .thenComparing(GroupMonthlyMemberSummaryDTO::getUserId));
+        Comparator<GroupMonthlyMemberSummaryDTO> byRateDesc =
+                Comparator.comparingDouble(GroupMonthlyMemberSummaryDTO::getExecutionRate).reversed();
+        Comparator<GroupMonthlyMemberSummaryDTO> byTypesDesc =
+                Comparator.comparingInt(GroupMonthlyMemberSummaryDTO::getTotalExerciseTypes).reversed();
+        Comparator<GroupMonthlyMemberSummaryDTO> byUserIdAsc =
+                Comparator.comparing(GroupMonthlyMemberSummaryDTO::getUserId);
+        summaries.sort(byRateDesc.thenComparing(byTypesDesc).thenComparing(byUserIdAsc));
 
         List<GroupMonthlyMemberSummaryDTO> ranked = new ArrayList<>(summaries.size());
         for (int i = 0; i < summaries.size(); i++) {
