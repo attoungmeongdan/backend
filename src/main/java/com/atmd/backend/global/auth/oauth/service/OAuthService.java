@@ -47,11 +47,17 @@ public class OAuthService {
 
     private static final String STATE_PREFIX = "OAUTH_STATE:";
     private static final long STATE_TTL_SECONDS = 300L;
+    private static final String STATE_DELIMITER = "|";
 
     public String getAuthorizeUrl(String provider) {
+        return getAuthorizeUrl(provider, null);
+    }
+
+    public String getAuthorizeUrl(String provider, String inviteCode) {
         String baseUrl = buildBaseAuthorizeUrl(provider);
         String state = UUID.randomUUID().toString().replace("-", "");
-        redisTemplate.opsForValue().set(STATE_PREFIX + state, provider, STATE_TTL_SECONDS, TimeUnit.SECONDS);
+        String value = provider + STATE_DELIMITER + (inviteCode == null ? "" : inviteCode);
+        redisTemplate.opsForValue().set(STATE_PREFIX + state, value, STATE_TTL_SECONDS, TimeUnit.SECONDS);
         return baseUrl + "&state=" + state;
     }
 
@@ -71,25 +77,32 @@ public class OAuthService {
     }
 
     public OAuthUserInfoDTO getUserInfo(String provider, String code, String state) {
-        validateAndConsumeState(state, provider);
+        String inviteCode = validateAndConsumeState(state, provider);
         return switch (provider.toLowerCase()) {
-            case "kakao" -> getKakaoUserInfo(code);
-            case "google" -> getGoogleUserInfo(code);
+            case "kakao" -> getKakaoUserInfo(code, inviteCode);
+            case "google" -> getGoogleUserInfo(code, inviteCode);
             default -> throw new GeneralException(AuthErrorCode.INVALID_PROVIDER);
         };
     }
 
-    private void validateAndConsumeState(String state, String provider) {
+    private String validateAndConsumeState(String state, String provider) {
         if (!StringUtils.hasText(state)) {
             throw new GeneralException(AuthErrorCode.OAUTH_INVALID_STATE);
         }
         String stored = redisTemplate.opsForValue().getAndDelete(STATE_PREFIX + state);
-        if (stored == null || !stored.equalsIgnoreCase(provider)) {
+        if (stored == null) {
             throw new GeneralException(AuthErrorCode.OAUTH_INVALID_STATE);
         }
+        int idx = stored.indexOf(STATE_DELIMITER);
+        String storedProvider = idx < 0 ? stored : stored.substring(0, idx);
+        String inviteCode = idx < 0 ? null : stored.substring(idx + 1);
+        if (!storedProvider.equalsIgnoreCase(provider)) {
+            throw new GeneralException(AuthErrorCode.OAUTH_INVALID_STATE);
+        }
+        return (inviteCode == null || inviteCode.isBlank()) ? null : inviteCode;
     }
 
-    private OAuthUserInfoDTO getKakaoUserInfo(String code) {
+    private OAuthUserInfoDTO getKakaoUserInfo(String code, String inviteCode) {
         KakaoTokenResponseDTO token = exchangeKakaoToken(code);
         KakaoUserInfoResponseDTO userInfo;
         try {
@@ -114,6 +127,7 @@ public class OAuthService {
                 .nickname(userInfo.getNickname())
                 .provider(Provider.KAKAO)
                 .providerId(String.valueOf(userInfo.getId()))
+                .inviteCode(inviteCode)
                 .build();
     }
 
@@ -142,7 +156,7 @@ public class OAuthService {
         }
     }
 
-    private OAuthUserInfoDTO getGoogleUserInfo(String code) {
+    private OAuthUserInfoDTO getGoogleUserInfo(String code, String inviteCode) {
         GoogleTokenResponseDTO token = exchangeGoogleToken(code);
         GoogleUserInfoResponseDTO userInfo;
         try {
@@ -166,6 +180,7 @@ public class OAuthService {
                 .nickname(userInfo.getName() != null ? userInfo.getName() : userInfo.getGivenName())
                 .provider(Provider.GOOGLE)
                 .providerId(userInfo.getSub())
+                .inviteCode(inviteCode)
                 .build();
     }
 

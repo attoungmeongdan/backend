@@ -9,6 +9,7 @@ import com.atmd.backend.domain.auth.dto.request.SignupRequestDTO;
 import com.atmd.backend.domain.auth.dto.response.AuthTokenResponseDTO;
 import com.atmd.backend.domain.auth.dto.response.OAuthCallbackResponseDTO;
 import com.atmd.backend.domain.auth.exception.AuthErrorCode;
+import com.atmd.backend.domain.group.service.GroupService;
 import com.atmd.backend.domain.user.entity.User;
 import com.atmd.backend.domain.user.entity.enums.Provider;
 import com.atmd.backend.domain.user.repository.UserRepository;
@@ -40,6 +41,7 @@ public class AuthService {
     private final AddressService addressService;
     private final SignupTokenProvider signupTokenProvider;
     private final SignupTokenService signupTokenService;
+    private final GroupService groupService;
 
     @Transactional
     public AuthTokenResponseDTO signup(SignupRequestDTO request, HttpServletResponse response) {
@@ -60,12 +62,14 @@ public class AuthService {
         );
 
         if (existingUser.isPresent()) {
-            issueTokens(existingUser.get(), response);
+            User user = existingUser.get();
+            groupService.joinAfterSignup(userInfo.getInviteCode(), user);
+            issueTokens(user, response);
             return OAuthCallbackResponseDTO.registered();
         }
 
         String signupToken = signupTokenProvider.generate(
-                userInfo.getProvider().name(), userInfo.getProviderId(), userInfo.getEmail()
+                userInfo.getProvider().name(), userInfo.getProviderId(), userInfo.getEmail(), userInfo.getInviteCode()
         );
         signupTokenService.save(userInfo.getProvider().name(), userInfo.getProviderId(), signupToken);
         response.addHeader("Set-Cookie", cookieProvider.createSignupTokenCookie(signupToken).toString());
@@ -86,6 +90,7 @@ public class AuthService {
         String providerStr = info.get("provider");
         String providerId = info.get("providerId");
         String email = info.get("email");
+        String inviteCode = info.get("inviteCode");
 
         if (!signupTokenService.validate(providerStr, providerId, signupToken)) {
             throw new GeneralException(AuthErrorCode.EXPIRED_SIGNUP_TOKEN);
@@ -102,6 +107,8 @@ public class AuthService {
         user.updateProfile(request.getAge(), request.getGender(), request.getHeight(), request.getWeight());
         user.updateAddress(address);
         userRepository.save(user);
+
+        groupService.joinAfterSignup(inviteCode, user);
 
         signupTokenService.delete(providerStr, providerId);
         response.addHeader("Set-Cookie", cookieProvider.expireSignupTokenCookie().toString());
