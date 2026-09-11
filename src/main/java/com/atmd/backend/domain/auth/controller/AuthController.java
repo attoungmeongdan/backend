@@ -87,8 +87,11 @@ public class AuthController {
     @GetMapping("/oauth2/{provider}/authorize")
     public ResponseEntity<ApiResponse<Map<String, String>>> getAuthorizeUrl(
             @Parameter(description = "소셜 로그인 제공자 (kakao | google)", example = "kakao")
-            @PathVariable String provider) {
-        return ResponseEntity.ok(ApiResponse.success(Map.of("authorizeUrl", oAuthService.getAuthorizeUrl(provider))));
+            @PathVariable String provider,
+            @Parameter(description = "그룹 초대 코드 (초대 링크를 통해 진입한 경우 전달)")
+            @RequestParam(name = "inviteCode", required = false) String inviteCode) {
+        return ResponseEntity.ok(ApiResponse.success(
+                Map.of("authorizeUrl", oAuthService.getAuthorizeUrl(provider, inviteCode))));
     }
 
     @Operation(
